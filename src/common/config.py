@@ -1,8 +1,9 @@
-"""Cấu hình chung cho pipeline xử lý dữ liệu (Giai đoạn 1)."""
+"""Cấu hình chung dùng cho MỌI giai đoạn (đặt ở src/common/)."""
 from pathlib import Path
 
 # ---- Đường dẫn ----
-ROOT = Path(__file__).resolve().parent.parent
+# File ở src/common/config.py -> parents[2] = thư mục gốc dự án (ChatBot/)
+ROOT = Path(__file__).resolve().parents[2]
 DATA_RAW = ROOT / "data" / "raw"          # nơi bạn thả file gốc: .pdf .docx .xlsx
 DATA_INTERIM = ROOT / "data" / "interim"  # văn bản đã chuyển đổi + làm sạch (.md)
 DATA_PROCESSED = ROOT / "data" / "processed"  # các chunk cuối cùng (.jsonl)

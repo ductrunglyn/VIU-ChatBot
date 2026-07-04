@@ -6,7 +6,9 @@ Dùng cho Giai đoạn 4 (fine-tuning QLoRA). Có kiểm tra hợp lệ cơ bả
 from __future__ import annotations
 import json
 import sys
+import pathlib
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "common"))
 import config
 
 SYSTEM_PROMPT = (
@@ -44,16 +46,18 @@ def _load_rows():
 
 def main():
     rows = _load_rows()
-    seen_ids, kept, skipped = set(), [], 0
+    # Chống trùng theo NỘI DUNG câu hỏi (id chỉ là số thứ tự cục bộ trong mỗi file,
+    # nên các file khác nhau có thể trùng id mà không phải trùng nội dung).
+    seen_q, kept, skipped = set(), [], 0
     for r in rows:
         if not r["question"] or not r["answer"]:
             skipped += 1
             continue
-        if r["id"] in seen_ids:
-            print(f"  ⚠️  id trùng: {r['id']} -> bỏ qua")
+        key = " ".join(r["question"].lower().split())
+        if key in seen_q:
             skipped += 1
             continue
-        seen_ids.add(r["id"])
+        seen_q.add(key)
         kept.append({
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},

@@ -15,8 +15,10 @@ data/processed/*
 !data/processed/.gitkeep
 data/vectordb/
 data/qa/train.jsonl
-
-# Giữ lại template + hướng dẫn Q/A (đã whitelist ở trên vì không match rule nào)
+# Nội dung Q/A thật của trường: KHÔNG đẩy lên repo public; chỉ giữ template
+data/qa/*.docx
+data/qa/*.csv
+!data/qa/qa_pairs_template.csv
 
 # Hệ điều hành / IDE
 .DS_Store

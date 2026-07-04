@@ -68,7 +68,8 @@ def correct_text(text: str) -> str:
 
 if __name__ == "__main__":
     # Chạy trực tiếp: sửa lỗi tại chỗ cho toàn bộ file trong data/interim/
-    import glob
+    import sys as _sys, pathlib as _pathlib
+    _sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[1] / "common"))
     import config
 
     files = sorted(config.DATA_INTERIM.glob("*.md"))

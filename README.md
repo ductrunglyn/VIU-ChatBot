@@ -43,10 +43,10 @@ cd ~/hdtrungoi/ChatBot
 #    data/raw/
 
 # 2) Chạy lại pipeline (tự OCR file scan, làm sạch, sửa lỗi OCR, cắt chunk):
-python src/pipeline.py --stats
+python src/Phase1-DataPreprocessing/pipeline.py --stats
 
 # 3) Nhúng lại vào vector DB để chatbot dùng dữ liệu mới (Giai đoạn 2):
-python src/embed.py --reset
+python src/Phase2-Embedding/embed.py --reset
 ```
 > `pipeline.py` xử lý LẠI toàn bộ `data/raw/` mỗi lần chạy (ghi đè `chunks.jsonl`).
 > Nếu file cũ nhiều mà chỉ thêm vài file, vẫn nên chạy lại cả cụm cho nhất quán.
@@ -54,11 +54,11 @@ python src/embed.py --reset
 ### Các lệnh phụ trợ
 ```bash
 # Chỉ sửa lại lỗi OCR trên bản .md rồi cắt chunk lại (KHÔNG OCR lại — chạy tức thì):
-python src/ocr_correct.py
-python src/pipeline.py --from-interim --stats
+python src/Phase1-DataPreprocessing/ocr_correct.py
+python src/Phase1-DataPreprocessing/pipeline.py --from-interim --stats
 
 # Chỉ cắt chunk lại từ data/interim (khi sửa tham số chunk trong config.py):
-python src/pipeline.py --from-interim --stats
+python src/Phase1-DataPreprocessing/pipeline.py --from-interim --stats
 ```
 
 ### Đầu ra
@@ -75,39 +75,56 @@ python src/pipeline.py --from-interim --stats
 
 ---
 
-## Bộ dữ liệu Q/A cho fine-tuning (Giai đoạn 4)
-Thầy cô soạn Q/A bằng Excel/CSV theo mẫu, đặt vào `data/qa/`, rồi:
-```bash
-conda activate test
-python src/build_dataset.py        # -> data/qa/train.jsonl (định dạng chat, chuẩn QLoRA)
-```
-Chi tiết cấu trúc cột và cách soạn: xem **`data/qa/README.md`**.
-
----
-
 ## Giai đoạn 2 — Embedding & Vector Database  ✅
 Nhúng chunk bằng **BGE-M3** (đa ngôn ngữ, chạy GPU) → lưu **ChromaDB** ở `data/vectordb/`.
 ```bash
 conda activate test
-python src/embed.py --reset                    # nhúng toàn bộ chunk vào vector DB
-python src/search.py "Em bị CPA 1.5 có bị đuổi học không?"   # kiểm thử truy xuất
+python src/Phase2-Embedding/embed.py --reset                 # nhúng toàn bộ chunk
+python src/Phase2-Embedding/search.py "Em bị CPA 1.5 có bị đuổi học không?"  # test truy xuất
 ```
 
 ---
 
-## Cấu trúc mã nguồn
+## Bộ dữ liệu Q/A cho fine-tuning (Giai đoạn 4)
+Có 2 cách chuẩn bị Q/A, đều đặt file vào `data/qa/`:
+- **Cách 1 — Word (.docx):** soạn theo mẫu "Câu N / Chủ đề / Câu hỏi / Đáp án /
+  Tài liệu tham chiếu" (xem `data/qa/README.md`). Sau đó chuyển sang CSV:
+  ```bash
+  python src/Phase4-FinetuningData/docx_to_csv.py    # mỗi .docx -> 1 .csv cùng tên
+  ```
+- **Cách 2 — Excel/CSV:** điền trực tiếp theo `data/qa/qa_pairs_template.csv`.
+
+Rồi gộp tất cả thành dataset huấn luyện (chống trùng theo nội dung câu hỏi):
+```bash
+python src/Phase4-FinetuningData/build_dataset.py  # -> data/qa/train.jsonl (chuẩn QLoRA)
+```
+Chi tiết cấu trúc cột: xem **`data/qa/README.md`**.
+
+---
+
+## Cấu trúc mã nguồn (tách theo giai đoạn)
+```
+src/
+  common/                    config.py — cấu hình dùng chung mọi giai đoạn
+  Phase1-DataPreprocessing/  extract · ocr · ocr_correct · clean · chunk · pipeline
+  Phase2-Embedding/          embed · search
+  Phase4-FinetuningData/     docx_to_csv · build_dataset
+```
 | File | Chức năng |
 |------|-----------|
-| `src/config.py`       | Đường dẫn, tham số chunking & embedding |
-| `src/extract.py`      | Trích text + bảng (Markdown); tự OCR trang scan |
-| `src/ocr.py`          | OCR tiếng Việt bằng EasyOCR (GPU) |
-| `src/ocr_correct.py`  | Sửa lỗi OCR tiếng Việt phổ biến |
-| `src/clean.py`        | Chuẩn hóa Unicode NFC, bỏ header/footer, gọi sửa OCR |
-| `src/chunk.py`        | Cắt chunk theo cấu trúc Chương/Điều/Khoản |
-| `src/pipeline.py`     | Chạy Giai đoạn 1, xuất `chunks.jsonl` |
-| `src/build_dataset.py`| Gộp Q/A (CSV/XLSX) → `train.jsonl` |
-| `src/embed.py`        | Nhúng chunk → ChromaDB (Giai đoạn 2) |
-| `src/search.py`       | Kiểm thử truy xuất từ vector DB |
+| `common/config.py`             | Đường dẫn, tham số chunking & embedding (dùng chung) |
+| `Phase1.../extract.py`         | Trích text + bảng (Markdown); tự OCR trang scan |
+| `Phase1.../ocr.py`             | OCR tiếng Việt bằng EasyOCR (GPU) |
+| `Phase1.../ocr_correct.py`     | Sửa lỗi OCR tiếng Việt phổ biến |
+| `Phase1.../clean.py`           | Chuẩn hóa Unicode NFC, bỏ header/footer, gọi sửa OCR |
+| `Phase1.../chunk.py`           | Cắt chunk theo cấu trúc Chương/Điều/Khoản |
+| `Phase1.../pipeline.py`        | Chạy Giai đoạn 1, xuất `chunks.jsonl` |
+| `Phase2.../embed.py`           | Nhúng chunk → ChromaDB (Giai đoạn 2) |
+| `Phase2.../search.py`          | Kiểm thử truy xuất từ vector DB |
+| `Phase4.../docx_to_csv.py`     | Chuyển .docx câu hỏi → .csv |
+| `Phase4.../build_dataset.py`   | Gộp Q/A (CSV/XLSX) → `train.jsonl` |
+
+> Các giai đoạn sau sẽ thêm thư mục tương ứng: `Phase3-RAG/`, `Phase5-UI/`, `Phase6-Deploy/`.
 
 ## Lộ trình
 1. Xử lý dữ liệu ✅ · 2. Embedding + Vector DB ✅ · 3. Lắp RAG (retrieval + LLM) ·

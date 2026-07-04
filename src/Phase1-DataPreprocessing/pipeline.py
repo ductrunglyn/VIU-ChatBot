@@ -1,15 +1,17 @@
 """Chạy toàn bộ Giai đoạn 1:  raw -> interim (markdown sạch) -> processed (chunks.jsonl).
 
 Cách dùng:
-    python src/pipeline.py            # xử lý tất cả file trong data/raw
-    python src/pipeline.py --stats    # in thống kê chunk sau khi chạy
+    python src/Phase1-DataPreprocessing/pipeline.py          # xử lý data/raw
+    python src/Phase1-DataPreprocessing/pipeline.py --stats  # kèm thống kê chunk
 """
 from __future__ import annotations
 import argparse
 import json
 import sys
+import pathlib
 from pathlib import Path
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "common"))
 import config
 import extract
 import clean

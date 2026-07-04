@@ -15,6 +15,8 @@ import re
 from dataclasses import dataclass, field, asdict
 from typing import List, Optional
 
+import sys as _sys, pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[1] / "common"))
 import config
 
 # Bảng chữ hoa tiếng Việt (để nhận tiêu đề bắt đầu ngay sau "Điều N.")
