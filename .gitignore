@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.venv/
+
+# ---- Dữ liệu: KHÔNG đẩy lên repo public ----
+# Giữ cấu trúc thư mục (qua .gitkeep) nhưng bỏ nội dung.
+data/raw/*
+!data/raw/.gitkeep
+data/interim/*
+!data/interim/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/vectordb/
+data/qa/train.jsonl
+
+# Giữ lại template + hướng dẫn Q/A (đã whitelist ở trên vì không match rule nào)
+
+# Hệ điều hành / IDE
+.DS_Store
+.vscode/
+*.log

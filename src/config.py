@@ -1,0 +1,28 @@
+"""Cấu hình chung cho pipeline xử lý dữ liệu (Giai đoạn 1)."""
+from pathlib import Path
+
+# ---- Đường dẫn ----
+ROOT = Path(__file__).resolve().parent.parent
+DATA_RAW = ROOT / "data" / "raw"          # nơi bạn thả file gốc: .pdf .docx .xlsx
+DATA_INTERIM = ROOT / "data" / "interim"  # văn bản đã chuyển đổi + làm sạch (.md)
+DATA_PROCESSED = ROOT / "data" / "processed"  # các chunk cuối cùng (.jsonl)
+
+CHUNKS_FILE = DATA_PROCESSED / "chunks.jsonl"
+
+# ---- Tham số Chunking ----
+# Mục tiêu số từ mỗi chunk. Quy chế được cắt theo "Điều"; điều nào dài hơn
+# ngưỡng này sẽ được cắt nhỏ tiếp theo khoản / đoạn văn.
+CHUNK_TARGET_WORDS = 400
+CHUNK_MAX_WORDS = 550       # vượt ngưỡng này thì buộc phải cắt
+CHUNK_MIN_WORDS = 40        # chunk quá ngắn sẽ được gộp với chunk trước
+CHUNK_OVERLAP_WORDS = 50    # số từ chồng lấp giữa 2 chunk liền kề
+
+# ---- Định dạng file được hỗ trợ ----
+SUPPORTED_EXTS = {".pdf", ".docx", ".xlsx", ".xls", ".txt", ".md"}
+
+# ---- Giai đoạn 2: Embedding & Vector Database ----
+EMBED_MODEL = "BAAI/bge-m3"          # đa ngôn ngữ, tiếng Việt tốt, chạy GPU
+VECTOR_DB_DIR = ROOT / "data" / "vectordb"   # ChromaDB lưu bền ở đây
+COLLECTION_NAME = "viu_docs"
+EMBED_BATCH = 32
+
