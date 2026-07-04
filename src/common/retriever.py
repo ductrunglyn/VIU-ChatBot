@@ -56,7 +56,22 @@ def retrieve(query: str, k: int = 5, candidates: int = None):
     return hits[:k]
 
 
+import re as _re
+
+
+def _clean_doc_name(fname: str) -> str:
+    """Biến tên file thành tên tài liệu dễ đọc (bỏ đuôi, mã số, ngày tháng)."""
+    n = _re.sub(r"\.(pdf|docx?|xlsx?|txt|md)$", "", fname or "", flags=_re.I)
+    n = _re.sub(r"^\[[^\]]*\]", "", n)                 # bỏ '[26-08-2022 ...]' đầu
+    n = _re.sub(r"qd-so-[\d-]+", "", n, flags=_re.I)   # bỏ mã 'qd-so-250-0001'
+    n = _re.sub(r"[-_]?\d{4,}[-_\d]*", " ", n)          # bỏ chuỗi số dài (mã/ngày)
+    n = _re.sub(r"[_]+", " ", n)
+    n = _re.sub(r"\s{2,}", " ", n).strip(" -_.·")
+    return n or (fname or "").strip()
+
+
 def format_source(meta: dict) -> str:
-    """Chuỗi trích dẫn nguồn gọn: 'tên file | Điều X | tiêu đề'."""
-    parts = [meta.get("source"), meta.get("dieu"), meta.get("heading")]
-    return " | ".join(p for p in parts if p)
+    """Trích dẫn gọn: 'Điều X, <tên tài liệu>' (KHÔNG kèm tên file)."""
+    doc = _clean_doc_name(meta.get("source", ""))
+    dieu = meta.get("dieu")
+    return f"{dieu}, {doc}" if dieu else doc

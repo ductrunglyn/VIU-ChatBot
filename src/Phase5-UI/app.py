@@ -37,12 +37,31 @@ EXAMPLES = [
 ]
 
 
+def _as_text(content):
+    """Ép nội dung tin nhắn về chuỗi (Gradio 6 có thể trả list/dict cho content)."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        out = []
+        for p in content:
+            if isinstance(p, str):
+                out.append(p)
+            elif isinstance(p, dict):
+                out.append(p.get("text") or p.get("content") or "")
+        return " ".join(out)
+    if isinstance(content, dict):
+        return content.get("text") or content.get("content") or ""
+    return str(content) if content is not None else ""
+
+
 def _history_to_pairs(history):
     """Đổi history dạng messages của Gradio -> danh sách (câu hỏi, câu trả lời)."""
     pairs, pending = [], None
     for m in history:
         role = m.get("role") if isinstance(m, dict) else None
-        content = m.get("content") if isinstance(m, dict) else None
+        content = _as_text(m.get("content") if isinstance(m, dict) else None)
+        # bỏ phần '📚 Nguồn tham khảo' đã gắn ở câu trả lời trước cho gọn ngữ cảnh
+        content = content.split("\n\n---\n📚")[0].strip()
         if role == "user":
             pending = content
         elif role == "assistant" and pending is not None:
