@@ -104,20 +104,32 @@ python src/Phase3-RAG/rag.py "..." --model Qwen/Qwen2.5-1.5B-Instruct
 
 ---
 
-## Bộ dữ liệu Q/A cho fine-tuning (Giai đoạn 4)
-Có 2 cách chuẩn bị Q/A, đều đặt file vào `data/qa/`:
+## Giai đoạn 4 — Fine-tuning QLoRA  ✅
+Dạy LLM "văn phong & tư duy tư vấn" từ bộ Q/A của trường (4-bit NF4 + LoRA).
+
+**Bước 1 — Chuẩn bị Q/A** (đặt file vào `data/qa/`):
 - **Cách 1 — Word (.docx):** soạn theo mẫu "Câu N / Chủ đề / Câu hỏi / Đáp án /
-  Tài liệu tham chiếu" (xem `data/qa/README.md`). Sau đó chuyển sang CSV:
+  Tài liệu tham chiếu" (xem `data/qa/README.md`), rồi chuyển sang CSV:
   ```bash
-  python src/Phase4-FinetuningData/docx_to_csv.py    # mỗi .docx -> 1 .csv cùng tên
+  python src/Phase4-Finetuning/docx_to_csv.py    # mỗi .docx -> 1 .csv cùng tên
   ```
 - **Cách 2 — Excel/CSV:** điền trực tiếp theo `data/qa/qa_pairs_template.csv`.
 
-Rồi gộp tất cả thành dataset huấn luyện (chống trùng theo nội dung câu hỏi):
+**Bước 2 — Gộp dataset** (chống trùng theo nội dung câu hỏi):
 ```bash
-python src/Phase4-FinetuningData/build_dataset.py  # -> data/qa/train.jsonl (chuẩn QLoRA)
+python src/Phase4-Finetuning/build_dataset.py   # -> data/qa/train.jsonl (chuẩn chat)
 ```
-Chi tiết cấu trúc cột: xem **`data/qa/README.md`**.
+
+**Bước 3 — Huấn luyện QLoRA** (adapter lưu ở `models/qlora-viu/`):
+```bash
+python src/Phase4-Finetuning/train_qlora.py
+```
+Sau khi train xong, `rag.py` **tự động nạp adapter** (bật/tắt bằng `USE_FINETUNED`
+trong `common/config.py`). Tham số LoRA/epoch cũng ở `config.py`.
+
+> ⚠️ Hiện mới có 73 cặp Q/A → fine-tune chủ yếu để **định hình văn phong**;
+> cần đạt 500–1000 cặp để cải thiện rõ. Thêm dữ liệu rồi chạy lại 3 bước trên.
+> Chi tiết cấu trúc cột: xem **`data/qa/README.md`**.
 
 ---
 
@@ -128,7 +140,7 @@ src/
   Phase1-DataPreprocessing/  extract · ocr · ocr_correct · clean · chunk · pipeline
   Phase2-Embedding/          embed · search
   Phase3-RAG/                rag
-  Phase4-FinetuningData/     docx_to_csv · build_dataset
+  Phase4-Finetuning/         docx_to_csv · build_dataset · train_qlora
 ```
 | File | Chức năng |
 |------|-----------|
@@ -145,9 +157,10 @@ src/
 | `Phase3.../rag.py`             | RAG: truy xuất + LLM sinh câu trả lời (Giai đoạn 3) |
 | `Phase4.../docx_to_csv.py`     | Chuyển .docx câu hỏi → .csv |
 | `Phase4.../build_dataset.py`   | Gộp Q/A (CSV/XLSX) → `train.jsonl` |
+| `Phase4.../train_qlora.py`     | Fine-tune QLoRA → LoRA adapter (Giai đoạn 4) |
 
 > Các giai đoạn sau sẽ thêm thư mục tương ứng: `Phase5-UI/`, `Phase6-Deploy/`.
 
 ## Lộ trình
 1. Xử lý dữ liệu ✅ · 2. Embedding + Vector DB ✅ · 3. Lắp RAG (retrieval + LLM) ✅ ·
-4. Fine-tuning tư vấn (QLoRA) · 5. Giao diện (Streamlit/Gradio) · 6. Kiểm thử & deploy
+4. Fine-tuning tư vấn (QLoRA) ✅ · 5. Giao diện (Streamlit/Gradio) · 6. Kiểm thử & deploy

@@ -12,5 +12,11 @@ sentence-transformers>=3.0.0   # nạp BGE-M3
 chromadb>=0.5.0                # vector database lưu bền
 
 # Giai đoạn 3 - RAG & LLM
-transformers>=4.45.0           # nạp & chạy LLM (Qwen2.5-1.5B-Instruct)
+transformers>=4.45.0           # nạp & chạy LLM (Qwen2.5-3B-Instruct)
 accelerate>=0.34.0             # hỗ trợ nạp model lên GPU
+
+# Giai đoạn 4 - Fine-tuning QLoRA
+peft>=0.13.0                   # LoRA adapter
+bitsandbytes>=0.44.0           # lượng tử hóa 4-bit (QLoRA)
+trl>=0.11.0                    # SFTTrainer
+datasets>=3.0.0                # nạp dataset huấn luyện

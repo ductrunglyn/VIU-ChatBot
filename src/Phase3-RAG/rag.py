@@ -48,6 +48,13 @@ def _load_llm():
         _tok = AutoTokenizer.from_pretrained(MODEL_NAME)
         _llm = AutoModelForCausalLM.from_pretrained(
             MODEL_NAME, dtype=torch.bfloat16).to("cuda")
+        # Nạp LoRA adapter đã fine-tune (nếu có và đang dùng đúng base model)
+        if (config.USE_FINETUNED and config.ADAPTER_DIR.exists()
+                and MODEL_NAME == config.LLM_MODEL):
+            from peft import PeftModel
+            _llm = PeftModel.from_pretrained(_llm, str(config.ADAPTER_DIR))
+            print(f"[LLM] Đã nạp LoRA adapter cố vấn: {config.ADAPTER_DIR.name}")
+        _llm.eval()
         print(f"[LLM] Sẵn sàng trên {next(_llm.parameters()).device}.")
     return _llm, _tok
 
@@ -101,9 +108,13 @@ def main():
     ap.add_argument("--k", type=int, default=None)
     ap.add_argument("--model", default=None,
                     help="Ghi đè LLM, vd: Qwen/Qwen2.5-3B-Instruct")
+    ap.add_argument("--base", action="store_true",
+                    help="Dùng model gốc, KHÔNG nạp LoRA adapter (để so sánh)")
     args = ap.parse_args()
     if args.model:
         MODEL_NAME = args.model
+    if args.base:
+        config.USE_FINETUNED = False
 
     if args.query:
         answer(args.query, args.k)

@@ -36,3 +36,16 @@ LLM_MAX_NEW_TOKENS = 512   # độ dài tối đa câu trả lời
 LLM_TEMPERATURE = 0.3      # thấp = bám tài liệu, ít bịa
 RAG_MIN_SCORE = 0.35       # điểm tương đồng tối thiểu để coi là có thông tin liên quan
 
+# ---- Giai đoạn 4: Fine-tuning QLoRA ----
+FINETUNE_BASE = LLM_MODEL                       # base để fine-tune
+ADAPTER_DIR = ROOT / "models" / "qlora-viu"     # nơi lưu LoRA adapter (gitignore)
+USE_FINETUNED = True        # rag.py tự nạp adapter nếu ADAPTER_DIR tồn tại
+LORA_R = 16
+LORA_ALPHA = 32
+LORA_DROPOUT = 0.05
+FT_EPOCHS = 8               # dataset còn nhỏ -> nhiều epoch; GIẢM khi có nhiều dữ liệu
+FT_LR = 2e-4
+FT_BATCH = 2
+FT_GRAD_ACCUM = 4
+FT_MAX_LEN = 1024
+
