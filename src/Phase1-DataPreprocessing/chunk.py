@@ -62,6 +62,15 @@ def _split_by_words(text: str, target: int, max_w: int, overlap: int) -> List[st
     # Ưu tiên cắt theo khoản, nếu không có thì theo câu.
     sentences = re.split(r"(?<=[\.\?!;])\s+|\n", text)
     sentences = [s.strip() for s in sentences if s.strip()]
+    # Câu/ô bảng quá dài (không có dấu ngắt) -> cắt cứng theo từ để tránh chunk khổng lồ.
+    expanded = []
+    for s in sentences:
+        if _wc(s) > max_w:
+            w = s.split()
+            expanded.extend(" ".join(w[i:i + target]) for i in range(0, len(w), target))
+        else:
+            expanded.append(s)
+    sentences = expanded
     chunks, cur, cur_wc = [], [], 0
     for sent in sentences:
         sw = _wc(sent)

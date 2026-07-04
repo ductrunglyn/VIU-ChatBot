@@ -68,10 +68,13 @@ python src/Phase1-DataPreprocessing/pipeline.py --from-interim --stats
 
 ### Lưu ý dữ liệu
 - Phần lớn PDF của trường là **scan ảnh** → pipeline tự OCR (EasyOCR, GPU).
-  OCR ~90% chính xác; bước sửa lỗi (`src/ocr_correct.py`) đã xử lý các lỗi phổ biến
+  OCR ~90% chính xác; bước sửa lỗi (`ocr_correct.py`) xử lý các lỗi phổ biến
   (ươ, d↔đ, I→l...). Với tài liệu quan trọng nên soát lại `data/interim/`.
-- Muốn tư vấn **lộ trình học** cần bổ sung **khung chương trình đào tạo** các ngành
-  (bảng: mã HP, tín chỉ, học kỳ, môn tiên quyết) — chép vào `data/raw/` và chạy lại.
+- **OCR BẢNG** (`table_ocr.py`, dùng img2table): trang scan có bảng (khung chương
+  trình: mã HP · tín chỉ · môn tiên quyết; bảng quy đổi điểm...) được trích riêng
+  giữ nguyên hàng/cột → chuyển thành bảng Markdown, thay vì bị OCR làm vỡ cấu trúc.
+- Khung chương trình đào tạo các ngành (`khdt *`) đã có trong `data/raw/`; thêm
+  ngành mới chỉ cần chép PDF vào đó và chạy lại pipeline.
 
 ---
 
@@ -141,7 +144,7 @@ trong `common/config.py`). Tham số LoRA/epoch cũng ở `config.py`.
 ```
 src/
   common/                    config.py · retriever.py — dùng chung mọi giai đoạn
-  Phase1-DataPreprocessing/  extract · ocr · ocr_correct · clean · chunk · pipeline
+  Phase1-DataPreprocessing/  extract · ocr · table_ocr · ocr_correct · clean · chunk · pipeline
   Phase2-Embedding/          embed · search
   Phase3-RAG/                rag
   Phase4-Finetuning/         docx_to_csv · build_dataset · train_qlora
@@ -152,6 +155,7 @@ src/
 | `common/retriever.py`          | Truy xuất chunk từ ChromaDB (Phase2 & Phase3 dùng chung) |
 | `Phase1.../extract.py`         | Trích text + bảng (Markdown); tự OCR trang scan |
 | `Phase1.../ocr.py`             | OCR tiếng Việt bằng EasyOCR (GPU) |
+| `Phase1.../table_ocr.py`       | OCR BẢNG (img2table) giữ cấu trúc hàng/cột cho trang scan |
 | `Phase1.../ocr_correct.py`     | Sửa lỗi OCR tiếng Việt phổ biến |
 | `Phase1.../clean.py`           | Chuẩn hóa Unicode NFC, bỏ header/footer, gọi sửa OCR |
 | `Phase1.../chunk.py`           | Cắt chunk theo cấu trúc Chương/Điều/Khoản |

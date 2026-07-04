@@ -90,7 +90,12 @@ def convert(docx_path: pathlib.Path) -> pathlib.Path:
     from docx import Document
 
     doc = Document(docx_path)
-    items = parse_paragraphs([p.text for p in doc.paragraphs])
+    # Mỗi câu có thể nằm trọn trong 1 đoạn văn với xuống dòng mềm (\n) -> tách thêm
+    # theo \n để mỗi nhãn (Câu N / Chủ đề / Câu hỏi / Đáp án / Tài liệu) là 1 dòng.
+    lines = []
+    for p in doc.paragraphs:
+        lines.extend(p.text.split("\n"))
+    items = parse_paragraphs(lines)
 
     out = docx_path.with_suffix(".csv")
     with out.open("w", encoding="utf-8", newline="") as fh:
@@ -120,7 +125,7 @@ def main():
         return
     for f in files:
         convert(f)
-    print("\nXong. Chạy tiếp: python src/Phase4-FinetuningData/build_dataset.py")
+    print("\nXong. Chạy tiếp: python src/Phase4-Finetuning/build_dataset.py")
 
 
 if __name__ == "__main__":

@@ -41,16 +41,21 @@ def extract_pdf(path: Path, use_ocr: bool = True, min_chars: int = 30) -> str:
     """
     import pdfplumber
 
-    out: List[str] = []
+    path = Path(path)  # chấp nhận cả chuỗi lẫn Path
+
+    pages_out = []   # mỗi phần tử: [số trang, text, [markdown bảng...]]
+    scanned = []     # chỉ số (1-based) các trang scan đã OCR
     fitz_doc = None  # mở lười, chỉ khi cần OCR
     n_ocr = 0
     try:
         with pdfplumber.open(path) as pdf:
             for i, page in enumerate(pdf.pages, start=1):
-                out.append(PAGE_MARKER.format(n=i))
                 text = (page.extract_text() or "").strip()
+                # bảng từ pdfplumber (chỉ có với trang text số hóa)
+                tbls_md = [md for tbl in page.extract_tables()
+                           if (md := _table_to_markdown(tbl))]
                 if len(text) >= min_chars:
-                    out.append(text)
+                    pages_out.append([i, text, tbls_md])
                 elif use_ocr:
                     if fitz_doc is None:
                         import fitz
@@ -58,19 +63,39 @@ def extract_pdf(path: Path, use_ocr: bool = True, min_chars: int = 30) -> str:
                         fitz_doc = fitz.open(path)
                         _ocr = ocr
                     ocr_text = _ocr.ocr_page(fitz_doc[i - 1])
+                    pages_out.append([i, ocr_text, tbls_md])
                     if ocr_text:
-                        out.append(ocr_text)
                         n_ocr += 1
-                elif text:
-                    out.append(text)
-                # Bảng: quan trọng với khung chương trình đào tạo
-                for tbl in page.extract_tables():
-                    md = _table_to_markdown(tbl)
-                    if md:
-                        out.append("\n" + md + "\n")
+                    scanned.append(i)
+                else:
+                    pages_out.append([i, text, tbls_md])
     finally:
         if fitz_doc is not None:
             fitz_doc.close()
+
+    # OCR BẢNG cho các trang scan (pdfplumber không đọc được bảng ảnh) bằng img2table.
+    if use_ocr and scanned:
+        try:
+            import table_ocr
+            ptables = table_ocr.extract_tables_markdown(path)  # {chỉ số 0-based: md}
+            n_tbl = 0
+            for entry in pages_out:
+                idx0 = entry[0] - 1
+                if entry[0] in scanned and idx0 in ptables:
+                    entry[2].append(ptables[idx0])
+                    n_tbl += 1
+            if n_tbl:
+                print(f"    [TABLE] Trích {n_tbl} trang có bảng (scan) trong '{path.name}'.")
+        except Exception as e:  # noqa: BLE001 - không để lỗi bảng chặn cả file
+            print(f"    ⚠️  Bỏ qua OCR bảng cho '{path.name}': {e}")
+
+    out: List[str] = []
+    for i, text, tbls_md in pages_out:
+        out.append(PAGE_MARKER.format(n=i))
+        if text:
+            out.append(text)
+        for md in tbls_md:
+            out.append("\n" + md + "\n")
 
     if n_ocr:
         print(f"    [OCR] Đã OCR {n_ocr} trang scan trong '{path.name}'.")

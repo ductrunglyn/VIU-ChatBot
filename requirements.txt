@@ -6,6 +6,7 @@ pandas>=2.2.0           # xử lý bảng Excel
 tqdm>=4.66.0            # thanh tiến trình
 easyocr>=1.7.0          # OCR tiếng Việt cho PDF scan (chạy GPU)
 pymupdf>=1.24.0         # render trang PDF -> ảnh cho OCR
+img2table[easyocr]>=1.3.0   # OCR BẢNG (giữ cấu trúc hàng/cột) cho trang scan
 
 # Giai đoạn 2 - Embedding & Vector Database
 sentence-transformers>=3.0.0   # nạp BGE-M3
