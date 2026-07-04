@@ -38,7 +38,7 @@ RERANK_ENABLED = True
 RERANK_MODEL = "BAAI/bge-reranker-v2-m3"
 RETRIEVE_CANDIDATES = 20   # số ứng viên dense trước khi rerank
 LLM_MAX_NEW_TOKENS = 512   # độ dài tối đa câu trả lời
-LLM_TEMPERATURE = 0.3      # thấp = bám tài liệu, ít bịa
+LLM_TEMPERATURE = 0.1      # rất thấp = bám tài liệu, ổn định, tránh rò tiếng Trung/Anh
 RAG_MIN_SCORE = 0.35       # điểm tương đồng tối thiểu để coi là có thông tin liên quan
 
 # ---- Giai đoạn 4: Fine-tuning QLoRA ----

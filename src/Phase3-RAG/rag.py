@@ -31,7 +31,8 @@ SYSTEM_PROMPT = (
     "- Chỉ dùng thông tin trong TÀI LIỆU; TUYỆT ĐỐI không bịa.\n"
     "- Nếu tài liệu không đủ thông tin, nói rõ là chưa tìm thấy trong quy định và khuyên "
     "sinh viên liên hệ phòng đào tạo / cố vấn học tập.\n"
-    "- Trả lời bằng tiếng Việt, giọng thân thiện, gọi sinh viên là 'em'."
+    "- CHỈ trả lời bằng TIẾNG VIỆT, tuyệt đối KHÔNG chèn tiếng Trung hay tiếng Anh. "
+    "Giọng thân thiện, gọi sinh viên là 'em'."
 )
 
 _llm = None
