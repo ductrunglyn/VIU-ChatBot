@@ -20,9 +20,10 @@ def main():
     args = ap.parse_args()
 
     hits = retriever.retrieve(args.query, args.k)
-    print(f"\n🔎 '{args.query}'  — {len(hits)} kết quả gần nhất:\n")
+    print(f"\n🔎 '{args.query}'  — {len(hits)} kết quả tốt nhất:\n")
     for i, h in enumerate(hits, 1):
-        print(f"[{i}] (điểm {h['score']:.3f})  {retriever.format_source(h['meta'])}")
+        rr = f"rerank {h['rerank_score']:.3f} | " if h.get("rerank_score") is not None else ""
+        print(f"[{i}] ({rr}dense {h['score']:.3f})  {retriever.format_source(h['meta'])}")
         snippet = h["text"].replace("\n", " ")
         print(f"    {snippet[:260]}...\n")
 

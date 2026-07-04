@@ -75,13 +75,17 @@ python src/Phase1-DataPreprocessing/pipeline.py --from-interim --stats
 
 ---
 
-## Giai đoạn 2 — Embedding & Vector Database  ✅
+## Giai đoạn 2 — Embedding & Vector Database (+ Rerank)  ✅
 Nhúng chunk bằng **BGE-M3** (đa ngôn ngữ, chạy GPU) → lưu **ChromaDB** ở `data/vectordb/`.
+Truy xuất 2 bước: dense lấy 20 ứng viên → **rerank** bằng cross-encoder
+`BGE-reranker-v2-m3` để xếp hạng chính xác hơn → lấy top-5.
 ```bash
 conda activate test
 python src/Phase2-Embedding/embed.py --reset                 # nhúng toàn bộ chunk
 python src/Phase2-Embedding/search.py "Em bị CPA 1.5 có bị đuổi học không?"  # test truy xuất
 ```
+> Bật/tắt rerank và số ứng viên: `RERANK_ENABLED`, `RETRIEVE_CANDIDATES` trong `common/config.py`.
+> Logic truy xuất dùng chung ở `common/retriever.py` (cả Giai đoạn 2 và 3).
 
 ---
 

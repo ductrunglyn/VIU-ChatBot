@@ -31,7 +31,12 @@ EMBED_BATCH = 32
 # 3B suy luận con số/quy định tốt hơn hẳn 1.5B (~6GB VRAM, vẫn dư trên 4080 16GB).
 # Máy yếu VRAM có thể đổi về "Qwen/Qwen2.5-1.5B-Instruct".
 LLM_MODEL = "Qwen/Qwen2.5-3B-Instruct"
-RAG_TOP_K = 5              # số chunk truy xuất để đưa vào ngữ cảnh
+RAG_TOP_K = 5              # số chunk CUỐI đưa vào ngữ cảnh (sau rerank)
+# Reranker: lấy nhiều ứng viên bằng dense rồi chấm lại bằng cross-encoder để
+# xếp hạng chính xác hơn (BGE-M3 dense cho điểm khá phẳng, khó phân biệt).
+RERANK_ENABLED = True
+RERANK_MODEL = "BAAI/bge-reranker-v2-m3"
+RETRIEVE_CANDIDATES = 20   # số ứng viên dense trước khi rerank
 LLM_MAX_NEW_TOKENS = 512   # độ dài tối đa câu trả lời
 LLM_TEMPERATURE = 0.3      # thấp = bám tài liệu, ít bịa
 RAG_MIN_SCORE = 0.35       # điểm tương đồng tối thiểu để coi là có thông tin liên quan

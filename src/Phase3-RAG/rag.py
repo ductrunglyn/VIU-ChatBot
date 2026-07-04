@@ -71,10 +71,7 @@ def _build_context(hits):
 
 def answer(query: str, k: int = None, verbose: bool = True):
     k = k or config.RAG_TOP_K
-    hits = retriever.retrieve(query, k)
-    # lọc theo ngưỡng liên quan
-    hits = [h for h in hits if h["score"] >= config.RAG_MIN_SCORE] or hits[:1]
-
+    hits = retriever.retrieve(query, k)   # đã rerank, lấy top-k tốt nhất
     context, sources = _build_context(hits)
     user_msg = f"TÀI LIỆU:\n{context}\n\nCÂU HỎI: {query}"
 
