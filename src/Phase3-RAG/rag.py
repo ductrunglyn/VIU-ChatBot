@@ -18,17 +18,25 @@ import retriever
 
 SYSTEM_PROMPT = (
     "Bạn là trợ lý cố vấn học tập của Trường Đại học Công nghiệp Việt - Hung. "
-    "Hãy trả lời câu hỏi của sinh viên CHỈ dựa trên phần TÀI LIỆU được cung cấp bên dưới. "
-    "Quy tắc:\n"
-    "- Trả lời bằng tiếng Việt, rõ ràng, giọng thân thiện như một cố vấn.\n"
-    "- Chỉ dùng thông tin có trong TÀI LIỆU; TUYỆT ĐỐI không bịa thêm.\n"
-    "- Ghi chú nguồn bằng số [1], [2]... tương ứng đoạn tài liệu bạn dùng.\n"
-    "- Nếu TÀI LIỆU không chứa thông tin để trả lời, hãy nói rõ là chưa tìm thấy "
-    "trong quy định và khuyên sinh viên liên hệ phòng đào tạo / cố vấn học tập."
+    "Hãy trả lời câu hỏi của sinh viên DỰA HOÀN TOÀN trên phần TÀI LIỆU bên dưới.\n\n"
+    "Cách trả lời:\n"
+    "1. Trả lời TRỰC TIẾP câu hỏi ngay ở câu đầu tiên.\n"
+    "2. Nếu câu hỏi nêu con số cụ thể của sinh viên (CPA, điểm, số tín chỉ, số lần "
+    "cảnh báo...), hãy SO SÁNH con số đó với đúng mốc quy định trong tài liệu rồi mới "
+    "kết luận. Phân biệt rõ các mức xử lý khác nhau — ví dụ 'cảnh báo học tập' KHÁC "
+    "'buộc thôi học'; đừng nhầm lẫn mốc điểm của mức này sang mức kia.\n"
+    "3. Giải thích ngắn gọn căn cứ và nêu bước hành động cụ thể cho sinh viên nếu phù hợp.\n"
+    "4. Ghi nguồn [1], [2]... cho thông tin đã dùng.\n\n"
+    "Ràng buộc:\n"
+    "- Chỉ dùng thông tin trong TÀI LIỆU; TUYỆT ĐỐI không bịa.\n"
+    "- Nếu tài liệu không đủ thông tin, nói rõ là chưa tìm thấy trong quy định và khuyên "
+    "sinh viên liên hệ phòng đào tạo / cố vấn học tập.\n"
+    "- Trả lời bằng tiếng Việt, giọng thân thiện, gọi sinh viên là 'em'."
 )
 
 _llm = None
 _tok = None
+MODEL_NAME = config.LLM_MODEL   # có thể override qua CLI --model
 
 
 def _load_llm():
@@ -36,10 +44,10 @@ def _load_llm():
     if _llm is None:
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
-        print(f"[LLM] Đang tải {config.LLM_MODEL} ...")
-        _tok = AutoTokenizer.from_pretrained(config.LLM_MODEL)
+        print(f"[LLM] Đang tải {MODEL_NAME} ...")
+        _tok = AutoTokenizer.from_pretrained(MODEL_NAME)
         _llm = AutoModelForCausalLM.from_pretrained(
-            config.LLM_MODEL, dtype=torch.bfloat16).to("cuda")
+            MODEL_NAME, dtype=torch.bfloat16).to("cuda")
         print(f"[LLM] Sẵn sàng trên {next(_llm.parameters()).device}.")
     return _llm, _tok
 
@@ -87,10 +95,15 @@ def answer(query: str, k: int = None, verbose: bool = True):
 
 
 def main():
+    global MODEL_NAME
     ap = argparse.ArgumentParser()
     ap.add_argument("query", nargs="?", help="Câu hỏi (bỏ trống để vào chế độ hỏi-đáp liên tục)")
     ap.add_argument("--k", type=int, default=None)
+    ap.add_argument("--model", default=None,
+                    help="Ghi đè LLM, vd: Qwen/Qwen2.5-3B-Instruct")
     args = ap.parse_args()
+    if args.model:
+        MODEL_NAME = args.model
 
     if args.query:
         answer(args.query, args.k)

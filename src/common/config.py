@@ -28,7 +28,9 @@ COLLECTION_NAME = "viu_docs"
 EMBED_BATCH = 32
 
 # ---- Giai đoạn 3: RAG & LLM ----
-LLM_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"   # nhỏ nhẹ (~3GB VRAM), tiếng Việt tốt
+# 3B suy luận con số/quy định tốt hơn hẳn 1.5B (~6GB VRAM, vẫn dư trên 4080 16GB).
+# Máy yếu VRAM có thể đổi về "Qwen/Qwen2.5-1.5B-Instruct".
+LLM_MODEL = "Qwen/Qwen2.5-3B-Instruct"
 RAG_TOP_K = 5              # số chunk truy xuất để đưa vào ngữ cảnh
 LLM_MAX_NEW_TOKENS = 512   # độ dài tối đa câu trả lời
 LLM_TEMPERATURE = 0.3      # thấp = bám tài liệu, ít bịa

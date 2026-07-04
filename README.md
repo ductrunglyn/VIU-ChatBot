@@ -86,7 +86,7 @@ python src/Phase2-Embedding/search.py "Em bị CPA 1.5 có bị đuổi học kh
 ---
 
 ## Giai đoạn 3 — RAG (truy xuất + LLM sinh câu trả lời)  ✅
-Ghép truy xuất tài liệu với **LLM Qwen2.5-1.5B-Instruct** (nhỏ ~3GB VRAM, chạy GPU).
+Ghép truy xuất tài liệu với **LLM Qwen2.5-3B-Instruct** (~6GB VRAM, chạy GPU).
 LLM chỉ trả lời dựa trên tài liệu tìm được và trích dẫn nguồn.
 ```bash
 conda activate test
@@ -94,9 +94,13 @@ conda activate test
 python src/Phase3-RAG/rag.py "Em bị CPA 1.5 ở năm hai có bị buộc thôi học không?"
 # Chế độ hỏi-đáp liên tục:
 python src/Phase3-RAG/rag.py
+# Thử model khác (vd bản nhẹ 1.5B cho máy yếu VRAM):
+python src/Phase3-RAG/rag.py "..." --model Qwen/Qwen2.5-1.5B-Instruct
 ```
-> Lần chạy đầu tự tải model (~3GB) về `~/.cache/huggingface`.
-> LLM 1.5B nhỏ nên câu trả lời còn cơ bản — sẽ cải thiện nhiều sau **Giai đoạn 4 (fine-tuning)**.
+> Lần chạy đầu tự tải model (~6GB) về `~/.cache/huggingface`.
+> Đã so sánh: **3B suy luận con số/quy định chính xác hơn hẳn 1.5B** (vd đối chiếu
+> CPA 1.5 với mốc 1.4). Muốn đổi mặc định: sửa `LLM_MODEL` trong `common/config.py`.
+> Chất lượng sẽ còn cải thiện sau **Giai đoạn 4 (fine-tuning)** với bộ Q/A của trường.
 
 ---
 
