@@ -1,0 +1,113 @@
+"""Giai đoạn 3: RAG — truy xuất tài liệu + LLM sinh câu trả lời.
+
+Luồng: câu hỏi -> retrieve top-k chunk (BGE-M3 + ChromaDB) -> ghép Prompt
+       -> LLM (Qwen2.5-1.5B-Instruct) đọc tài liệu và trả lời + trích nguồn.
+
+Cách dùng:
+    conda activate test
+    python src/Phase3-RAG/rag.py "Em bị CPA 1.5 có bị đuổi học không?"
+    python src/Phase3-RAG/rag.py            # chế độ hỏi-đáp liên tục (gõ 'thoat' để dừng)
+"""
+from __future__ import annotations
+import argparse
+import sys as _sys, pathlib as _pathlib
+
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[1] / "common"))
+import config
+import retriever
+
+SYSTEM_PROMPT = (
+    "Bạn là trợ lý cố vấn học tập của Trường Đại học Công nghiệp Việt - Hung. "
+    "Hãy trả lời câu hỏi của sinh viên CHỈ dựa trên phần TÀI LIỆU được cung cấp bên dưới. "
+    "Quy tắc:\n"
+    "- Trả lời bằng tiếng Việt, rõ ràng, giọng thân thiện như một cố vấn.\n"
+    "- Chỉ dùng thông tin có trong TÀI LIỆU; TUYỆT ĐỐI không bịa thêm.\n"
+    "- Ghi chú nguồn bằng số [1], [2]... tương ứng đoạn tài liệu bạn dùng.\n"
+    "- Nếu TÀI LIỆU không chứa thông tin để trả lời, hãy nói rõ là chưa tìm thấy "
+    "trong quy định và khuyên sinh viên liên hệ phòng đào tạo / cố vấn học tập."
+)
+
+_llm = None
+_tok = None
+
+
+def _load_llm():
+    global _llm, _tok
+    if _llm is None:
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+        print(f"[LLM] Đang tải {config.LLM_MODEL} ...")
+        _tok = AutoTokenizer.from_pretrained(config.LLM_MODEL)
+        _llm = AutoModelForCausalLM.from_pretrained(
+            config.LLM_MODEL, dtype=torch.bfloat16).to("cuda")
+        print(f"[LLM] Sẵn sàng trên {next(_llm.parameters()).device}.")
+    return _llm, _tok
+
+
+def _build_context(hits):
+    """Ghép các chunk thành khối TÀI LIỆU đánh số + danh sách nguồn."""
+    blocks, sources = [], []
+    for i, h in enumerate(hits, 1):
+        src = retriever.format_source(h["meta"])
+        blocks.append(f"[{i}] (Nguồn: {src})\n{h['text']}")
+        sources.append(f"[{i}] {src}")
+    return "\n\n".join(blocks), sources
+
+
+def answer(query: str, k: int = None, verbose: bool = True):
+    k = k or config.RAG_TOP_K
+    hits = retriever.retrieve(query, k)
+    # lọc theo ngưỡng liên quan
+    hits = [h for h in hits if h["score"] >= config.RAG_MIN_SCORE] or hits[:1]
+
+    context, sources = _build_context(hits)
+    user_msg = f"TÀI LIỆU:\n{context}\n\nCÂU HỎI: {query}"
+
+    llm, tok = _load_llm()
+    messages = [{"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_msg}]
+    text = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    inputs = tok([text], return_tensors="pt").to(llm.device)
+    gen = llm.generate(
+        **inputs, max_new_tokens=config.LLM_MAX_NEW_TOKENS,
+        do_sample=True, temperature=config.LLM_TEMPERATURE, top_p=0.9,
+        pad_token_id=tok.eos_token_id,
+    )
+    reply = tok.decode(gen[0][inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
+
+    if verbose:
+        print("\n" + "=" * 70)
+        print("💬 TRẢ LỜI:\n")
+        print(reply)
+        print("\n📚 NGUỒN THAM KHẢO:")
+        for s in sources:
+            print("   " + s)
+        print("=" * 70 + "\n")
+    return reply, sources
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("query", nargs="?", help="Câu hỏi (bỏ trống để vào chế độ hỏi-đáp liên tục)")
+    ap.add_argument("--k", type=int, default=None)
+    args = ap.parse_args()
+
+    if args.query:
+        answer(args.query, args.k)
+        return
+
+    print("=== Cố vấn học tập VIU (RAG) — gõ 'thoat' để dừng ===")
+    _load_llm()  # nạp sẵn để lần hỏi đầu không chờ lâu
+    while True:
+        try:
+            q = input("\n🧑 Sinh viên: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            break
+        if q.lower() in {"thoat", "thoát", "exit", "quit"}:
+            break
+        if q:
+            answer(q, args.k)
+
+
+if __name__ == "__main__":
+    main()

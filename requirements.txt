@@ -10,3 +10,7 @@ pymupdf>=1.24.0         # render trang PDF -> ảnh cho OCR
 # Giai đoạn 2 - Embedding & Vector Database
 sentence-transformers>=3.0.0   # nạp BGE-M3
 chromadb>=0.5.0                # vector database lưu bền
+
+# Giai đoạn 3 - RAG & LLM
+transformers>=4.45.0           # nạp & chạy LLM (Qwen2.5-1.5B-Instruct)
+accelerate>=0.34.0             # hỗ trợ nạp model lên GPU

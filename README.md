@@ -85,6 +85,21 @@ python src/Phase2-Embedding/search.py "Em bị CPA 1.5 có bị đuổi học kh
 
 ---
 
+## Giai đoạn 3 — RAG (truy xuất + LLM sinh câu trả lời)  ✅
+Ghép truy xuất tài liệu với **LLM Qwen2.5-1.5B-Instruct** (nhỏ ~3GB VRAM, chạy GPU).
+LLM chỉ trả lời dựa trên tài liệu tìm được và trích dẫn nguồn.
+```bash
+conda activate test
+# Hỏi 1 câu:
+python src/Phase3-RAG/rag.py "Em bị CPA 1.5 ở năm hai có bị buộc thôi học không?"
+# Chế độ hỏi-đáp liên tục:
+python src/Phase3-RAG/rag.py
+```
+> Lần chạy đầu tự tải model (~3GB) về `~/.cache/huggingface`.
+> LLM 1.5B nhỏ nên câu trả lời còn cơ bản — sẽ cải thiện nhiều sau **Giai đoạn 4 (fine-tuning)**.
+
+---
+
 ## Bộ dữ liệu Q/A cho fine-tuning (Giai đoạn 4)
 Có 2 cách chuẩn bị Q/A, đều đặt file vào `data/qa/`:
 - **Cách 1 — Word (.docx):** soạn theo mẫu "Câu N / Chủ đề / Câu hỏi / Đáp án /
@@ -105,14 +120,16 @@ Chi tiết cấu trúc cột: xem **`data/qa/README.md`**.
 ## Cấu trúc mã nguồn (tách theo giai đoạn)
 ```
 src/
-  common/                    config.py — cấu hình dùng chung mọi giai đoạn
+  common/                    config.py · retriever.py — dùng chung mọi giai đoạn
   Phase1-DataPreprocessing/  extract · ocr · ocr_correct · clean · chunk · pipeline
   Phase2-Embedding/          embed · search
+  Phase3-RAG/                rag
   Phase4-FinetuningData/     docx_to_csv · build_dataset
 ```
 | File | Chức năng |
 |------|-----------|
-| `common/config.py`             | Đường dẫn, tham số chunking & embedding (dùng chung) |
+| `common/config.py`             | Đường dẫn, tham số chunking / embedding / LLM (dùng chung) |
+| `common/retriever.py`          | Truy xuất chunk từ ChromaDB (Phase2 & Phase3 dùng chung) |
 | `Phase1.../extract.py`         | Trích text + bảng (Markdown); tự OCR trang scan |
 | `Phase1.../ocr.py`             | OCR tiếng Việt bằng EasyOCR (GPU) |
 | `Phase1.../ocr_correct.py`     | Sửa lỗi OCR tiếng Việt phổ biến |
@@ -121,11 +138,12 @@ src/
 | `Phase1.../pipeline.py`        | Chạy Giai đoạn 1, xuất `chunks.jsonl` |
 | `Phase2.../embed.py`           | Nhúng chunk → ChromaDB (Giai đoạn 2) |
 | `Phase2.../search.py`          | Kiểm thử truy xuất từ vector DB |
+| `Phase3.../rag.py`             | RAG: truy xuất + LLM sinh câu trả lời (Giai đoạn 3) |
 | `Phase4.../docx_to_csv.py`     | Chuyển .docx câu hỏi → .csv |
 | `Phase4.../build_dataset.py`   | Gộp Q/A (CSV/XLSX) → `train.jsonl` |
 
-> Các giai đoạn sau sẽ thêm thư mục tương ứng: `Phase3-RAG/`, `Phase5-UI/`, `Phase6-Deploy/`.
+> Các giai đoạn sau sẽ thêm thư mục tương ứng: `Phase5-UI/`, `Phase6-Deploy/`.
 
 ## Lộ trình
-1. Xử lý dữ liệu ✅ · 2. Embedding + Vector DB ✅ · 3. Lắp RAG (retrieval + LLM) ·
+1. Xử lý dữ liệu ✅ · 2. Embedding + Vector DB ✅ · 3. Lắp RAG (retrieval + LLM) ✅ ·
 4. Fine-tuning tư vấn (QLoRA) · 5. Giao diện (Streamlit/Gradio) · 6. Kiểm thử & deploy

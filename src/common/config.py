@@ -27,3 +27,10 @@ VECTOR_DB_DIR = ROOT / "data" / "vectordb"   # ChromaDB lưu bền ở đây
 COLLECTION_NAME = "viu_docs"
 EMBED_BATCH = 32
 
+# ---- Giai đoạn 3: RAG & LLM ----
+LLM_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"   # nhỏ nhẹ (~3GB VRAM), tiếng Việt tốt
+RAG_TOP_K = 5              # số chunk truy xuất để đưa vào ngữ cảnh
+LLM_MAX_NEW_TOKENS = 512   # độ dài tối đa câu trả lời
+LLM_TEMPERATURE = 0.3      # thấp = bám tài liệu, ít bịa
+RAG_MIN_SCORE = 0.35       # điểm tương đồng tối thiểu để coi là có thông tin liên quan
+
