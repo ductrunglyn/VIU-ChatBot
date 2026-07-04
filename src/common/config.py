@@ -37,6 +37,10 @@ RAG_TOP_K = 5              # số chunk CUỐI đưa vào ngữ cảnh (sau rera
 RERANK_ENABLED = True
 RERANK_MODEL = "BAAI/bge-reranker-v2-m3"
 RETRIEVE_CANDIDATES = 20   # số ứng viên dense trước khi rerank
+
+# ---- Giai đoạn 5: Giao diện web (Gradio) ----
+UI_PORT = 7860
+UI_HISTORY_TURNS = 3       # số lượt hội thoại trước đưa vào ngữ cảnh (cho câu hỏi nối tiếp)
 LLM_MAX_NEW_TOKENS = 512   # độ dài tối đa câu trả lời
 LLM_TEMPERATURE = 0.1      # rất thấp = bám tài liệu, ổn định, tránh rò tiếng Trung/Anh
 RAG_MIN_SCORE = 0.35       # điểm tương đồng tối thiểu để coi là có thông tin liên quan

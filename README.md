@@ -134,9 +134,26 @@ python src/Phase4-Finetuning/train_qlora.py
 Sau khi train xong, `rag.py` **tự động nạp adapter** (bật/tắt bằng `USE_FINETUNED`
 trong `common/config.py`). Tham số LoRA/epoch cũng ở `config.py`.
 
-> ⚠️ Hiện mới có 73 cặp Q/A → fine-tune chủ yếu để **định hình văn phong**;
-> cần đạt 500–1000 cặp để cải thiện rõ. Thêm dữ liệu rồi chạy lại 3 bước trên.
+> Hiện có ~500 cặp Q/A. Thêm dữ liệu rồi chạy lại 3 bước trên để cải thiện.
 > Chi tiết cấu trúc cột: xem **`data/qa/README.md`**.
+
+---
+
+## Giai đoạn 5 — Giao diện web (chatbot)  ✅
+Website chat (Gradio) cho sinh viên/thầy cô dùng thật. Nạp model 1 lần, phục vụ
+nhiều người; câu trả lời hiện dần (streaming) và kèm nguồn trích dẫn.
+```bash
+conda activate test
+cd ~/hdtrungoi/ChatBot
+python src/Phase5-UI/app.py       # nên chạy trong `screen -r ChatBot` để giữ chạy nền
+```
+Mở trình duyệt:
+- Trên chính máy chủ: **http://localhost:7860**
+- Máy khác cùng mạng LAN: **http://\<IP-máy-chủ\>:7860** (xem IP bằng `hostname -I`)
+
+> Dùng model đã fine-tune (nếu có adapter). Đổi cổng: `UI_PORT` trong `common/config.py`.
+> Cần link công khai tạm thời (demo qua Internet): sửa `share=False` -> `share=True`
+> trong `app.py` — **cân nhắc** vì sẽ lộ chatbot + dữ liệu ra ngoài.
 
 ---
 
@@ -146,8 +163,9 @@ src/
   common/                    config.py · retriever.py — dùng chung mọi giai đoạn
   Phase1-DataPreprocessing/  extract · ocr · table_ocr · ocr_correct · clean · chunk · pipeline
   Phase2-Embedding/          embed · search
-  Phase3-RAG/                rag
+  Phase3-RAG/                rag · test_rag
   Phase4-Finetuning/         docx_to_csv · build_dataset · train_qlora
+  Phase5-UI/                 app (giao diện web Gradio)
 ```
 | File | Chức năng |
 |------|-----------|
@@ -163,12 +181,14 @@ src/
 | `Phase2.../embed.py`           | Nhúng chunk → ChromaDB (Giai đoạn 2) |
 | `Phase2.../search.py`          | Kiểm thử truy xuất từ vector DB |
 | `Phase3.../rag.py`             | RAG: truy xuất + LLM sinh câu trả lời (Giai đoạn 3) |
+| `Phase3.../test_rag.py`        | Test RAG theo lô câu hỏi (đánh giá chatbot) |
 | `Phase4.../docx_to_csv.py`     | Chuyển .docx câu hỏi → .csv |
 | `Phase4.../build_dataset.py`   | Gộp Q/A (CSV/XLSX) → `train.jsonl` |
 | `Phase4.../train_qlora.py`     | Fine-tune QLoRA → LoRA adapter (Giai đoạn 4) |
+| `Phase5.../app.py`             | Giao diện web chatbot (Gradio) (Giai đoạn 5) |
 
-> Các giai đoạn sau sẽ thêm thư mục tương ứng: `Phase5-UI/`, `Phase6-Deploy/`.
+> Giai đoạn 6 (triển khai) sẽ thêm `Phase6-Deploy/`.
 
 ## Lộ trình
 1. Xử lý dữ liệu ✅ · 2. Embedding + Vector DB ✅ · 3. Lắp RAG (retrieval + LLM) ✅ ·
-4. Fine-tuning tư vấn (QLoRA) ✅ · 5. Giao diện (Streamlit/Gradio) · 6. Kiểm thử & deploy
+4. Fine-tuning tư vấn (QLoRA) ✅ · 5. Giao diện web (Gradio) ✅ · 6. Kiểm thử & triển khai

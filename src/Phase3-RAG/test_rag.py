@@ -22,10 +22,10 @@ import rag
 DEFAULT_QUESTIONS = [
     "Sinh viên bị cảnh báo học tập trong những trường hợp nào?",
     "Điều kiện để được xét tốt nghiệp là gì?",
-    "Em bị CPA 1.5 ở năm hai thì có bị buộc thôi học không?",
+    "Em bị GPA 1.5 ở năm hai thì có bị buộc thôi học không?",
     "Học phần Mạng máy tính của ngành Khoa học máy tính có mấy tín chỉ?",
     "Thời gian đào tạo tối đa của sinh viên là bao lâu?",
-    "Em còn nợ 3 môn và CPA 1.9, nên làm gì để ra trường đúng hạn?",
+    "Em còn nợ 3 môn và GPA 1.9, nên làm gì để ra trường đúng hạn?",
     "Trường có bán trú cho sinh viên không?",  # ngoài phạm vi -> phải nói không tìm thấy
 ]
 

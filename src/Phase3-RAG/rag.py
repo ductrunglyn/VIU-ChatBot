@@ -99,6 +99,41 @@ def answer(query: str, k: int = None, verbose: bool = True):
     return reply, sources
 
 
+def _build_messages(query: str, history=None):
+    """Ghép system + lịch sử hội thoại + tài liệu truy xuất cho câu hỏi hiện tại."""
+    hits = retriever.retrieve(query, config.RAG_TOP_K)
+    context, sources = _build_context(hits)
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    for u, a in (history or []):
+        messages.append({"role": "user", "content": u})
+        messages.append({"role": "assistant", "content": a})
+    messages.append({"role": "user", "content": f"TÀI LIỆU:\n{context}\n\nCÂU HỎI: {query}"})
+    return messages, sources
+
+
+def answer_stream(query: str, history=None):
+    """Generator cho giao diện chat: yield (văn bản đang sinh dần, danh sách nguồn).
+
+    history: danh sách các cặp (câu hỏi, câu trả lời) trước đó.
+    """
+    import threading
+    from transformers import TextIteratorStreamer
+
+    llm, tok = _load_llm()
+    messages, sources = _build_messages(query, history)
+    text = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    inputs = tok([text], return_tensors="pt").to(llm.device)
+    streamer = TextIteratorStreamer(tok, skip_prompt=True, skip_special_tokens=True)
+    kwargs = dict(**inputs, max_new_tokens=config.LLM_MAX_NEW_TOKENS,
+                  do_sample=True, temperature=config.LLM_TEMPERATURE, top_p=0.9,
+                  pad_token_id=tok.eos_token_id, streamer=streamer)
+    threading.Thread(target=llm.generate, kwargs=kwargs).start()
+    acc = ""
+    for piece in streamer:
+        acc += piece
+        yield acc, sources
+
+
 def main():
     global MODEL_NAME
     ap = argparse.ArgumentParser()
