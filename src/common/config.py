@@ -90,7 +90,9 @@ USE_FINETUNED = True        # rag.py tự nạp adapter nếu ADAPTER_DIR tồn 
 LORA_R = 16
 LORA_ALPHA = 32
 LORA_DROPOUT = 0.05
-FT_EPOCHS = 8               # dataset còn nhỏ -> nhiều epoch; GIẢM khi có nhiều dữ liệu
+# Số vòng huấn luyện: đặt theo kích thước dữ liệu. Với ~1800 mẫu, 3 vòng là đủ;
+# để 8 vòng như khi dữ liệu còn ít (73 mẫu) sẽ khiến mô hình học vẹt.
+FT_EPOCHS = 3
 FT_LR = 2e-4
 FT_BATCH = 2
 FT_GRAD_ACCUM = 4
