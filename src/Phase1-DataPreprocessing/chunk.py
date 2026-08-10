@@ -60,6 +60,48 @@ def _find_dieu_boundaries(text: str):
     return kept
 
 
+# Điều khoản thi hành của một Quyết định ban hành: "Ban hành kèm theo...",
+# "có hiệu lực kể từ ngày ký", "chịu trách nhiệm thi hành", kèm "Nơi nhận" và chữ ký.
+_ENACTING_RE = re.compile(
+    r"ban hành kèm theo (quyết định|văn bản) này|"
+    r"chịu trách nhiệm thi hành (quyết định|văn bản) này|"
+    r"có hiệu lực (thi hành )?kể từ ngày ký|"
+    r"nơi nhận\s*:", re.IGNORECASE)
+
+
+def _is_enacting(text: str) -> bool:
+    """Khối chỉ có thủ tục ban hành, không mang thông tin nào cho sinh viên.
+
+    Bỏ chúng vì hai lý do. Một, chúng không trả lời được câu hỏi nào. Hai, một
+    tệp thường gồm Quyết định ban hành RỒI mới tới Quy định đính kèm, cả hai đều
+    đánh số từ Điều 1 — giữ lại thì kho tri thức có hai đoạn cùng nhãn
+    "Điều 3" của cùng một tài liệu, và mô hình sẽ trích nhầm đoạn thủ tục
+    (danh sách nơi nhận, tên người ký) thay vì đoạn quy định thật.
+
+    Chỉ bỏ khối NGẮN: điều khoản thi hành luôn ngắn, còn khối dài có nhắc tới
+    các cụm này thường là nội dung thật nên phải giữ.
+    """
+    return _wc(text) < 200 and bool(_ENACTING_RE.search(text))
+
+
+# Phần đuôi công văn: "Nơi nhận: ..." rồi tới nơi ký. Nằm ở CUỐI khối nội dung
+# thật nên không thể bỏ cả khối, chỉ cắt từ chỗ này trở đi.
+_ADMIN_TAIL_RE = re.compile(r"\|?\s*Nơi nhận\s*:", re.IGNORECASE)
+
+
+def _strip_admin_tail(text: str) -> str:
+    """Cắt bỏ khối 'Nơi nhận / chữ ký' dính ở cuối đoạn nội dung.
+
+    Giữ lại phần đầu vì đó là quy định thật; chỉ cắt khi phần giữ lại vẫn còn đủ
+    dài, tránh trường hợp cắt xong chunk rỗng.
+    """
+    m = _ADMIN_TAIL_RE.search(text)
+    if not m:
+        return text
+    head = text[:m.start()].strip()
+    return head if _wc(head) >= config.CHUNK_MIN_WORDS else text
+
+
 def _wc(text: str) -> int:
     return len(text.split())
 
@@ -164,6 +206,9 @@ def _chunk_by_dieu(text, source, dieu_matches, chuong_matches) -> List[Chunk]:
             pieces = _split_by_words(block, config.CHUNK_TARGET_WORDS,
                                      config.CHUNK_MAX_WORDS, config.CHUNK_OVERLAP_WORDS)
         for j, piece in enumerate(pieces):
+            if _is_enacting(piece):
+                continue
+            piece = _strip_admin_tail(piece)
             # Tệp có nhiều phần đánh số riêng nên số Điều có thể lặp lại; thêm
             # số phần vào mã chunk để không hai chunk nào trùng mã.
             cid = (f"{source}::" + (f"phần {part}::" if part > 1 else "") + dieu_label
@@ -205,8 +250,10 @@ def _chunk_generic(text, source) -> List[Chunk]:
                   else _split_by_words(content, config.CHUNK_TARGET_WORDS,
                                        config.CHUNK_MAX_WORDS, config.CHUNK_OVERLAP_WORDS))
         for piece in pieces:
+            if _is_enacting(piece):
+                continue
             counter += 1
-            body = (f"{heading}\n{piece}" if heading else piece)
+            body = _strip_admin_tail(f"{heading}\n{piece}" if heading else piece)
             chunks.append(Chunk(
                 chunk_id=f"{source}::c{counter}", source=source,
                 text=body, word_count=_wc(body), heading=heading,

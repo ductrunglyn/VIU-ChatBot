@@ -35,10 +35,13 @@ def process_one(path: Path) -> list:
 def rechunk_from_interim() -> list:
     """Re-chunk từ các file .md đã làm sạch (bỏ qua extract + OCR, chạy tức thì)."""
     mds = sorted(config.DATA_INTERIM.glob("*.md"))
+    # Tra lại ĐÚNG tên tệp gốc trong data/raw thay vì đoán đuôi .pdf: kho tri thức
+    # hiện gồm .docx/.doc, gắn nhầm đuôi khiến metadata không khớp tệp có thật.
+    raw_by_stem = {p.stem: p.name for p in config.DATA_RAW.iterdir() if p.is_file()}
     all_chunks = []
     for md in mds:
         cleaned = md.read_text(encoding="utf-8")
-        source = md.stem + ".pdf"  # tên nguồn gần đúng để hiển thị
+        source = raw_by_stem.get(md.stem, md.stem + ".pdf")
         chunks = chunker.merge_tiny_chunks(chunker.chunk_document(cleaned, source=source))
         all_chunks.extend(chunks)
         print(f"  → {md.name}: {len(chunks)} chunk")

@@ -90,9 +90,11 @@ USE_FINETUNED = True        # rag.py tự nạp adapter nếu ADAPTER_DIR tồn 
 LORA_R = 16
 LORA_ALPHA = 32
 LORA_DROPOUT = 0.05
-# Số vòng huấn luyện: đặt theo kích thước dữ liệu. Với ~1800 mẫu, 3 vòng là đủ;
-# để 8 vòng như khi dữ liệu còn ít (73 mẫu) sẽ khiến mô hình học vẹt.
-FT_EPOCHS = 3
+# Số vòng huấn luyện: đặt theo kích thước dữ liệu VÀ mức độ học thuộc quan sát được.
+# Với ~1800 mẫu dài (có kèm tài liệu), chạy 3 vòng làm loss tụt còn 0,08 và mô hình
+# đọc lại nguyên văn đoạn tài liệu đã thuộc thay vì đọc tài liệu đang được cấp.
+# 2 vòng đủ để học văn phong và cách trích dẫn mà chưa thuộc lòng nội dung.
+FT_EPOCHS = 2
 FT_LR = 2e-4
 # Mẫu huấn luyện nay kèm cả khối TÀI LIỆU (giống hệt lúc chạy thật) nên dài hơn
 # hẳn: đo thực tế trung vị 2194 token, p90 2644. Để 1024 như trước sẽ cắt cụt
