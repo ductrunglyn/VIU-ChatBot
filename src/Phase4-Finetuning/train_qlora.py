@@ -77,6 +77,8 @@ def main():
         logging_steps=5, save_strategy="no",
         bf16=True, max_length=config.FT_MAX_LEN, packing=False,
         assistant_only_loss=True, report_to="none",
+        # Mẫu dài ~3000 token: đánh đổi ~30% thời gian để không tràn bộ nhớ GPU.
+        gradient_checkpointing=True,
     )
 
     trainer = SFTTrainer(

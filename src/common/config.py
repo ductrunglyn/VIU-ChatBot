@@ -94,7 +94,12 @@ LORA_DROPOUT = 0.05
 # để 8 vòng như khi dữ liệu còn ít (73 mẫu) sẽ khiến mô hình học vẹt.
 FT_EPOCHS = 3
 FT_LR = 2e-4
-FT_BATCH = 2
-FT_GRAD_ACCUM = 4
-FT_MAX_LEN = 1024
+# Mẫu huấn luyện nay kèm cả khối TÀI LIỆU (giống hệt lúc chạy thật) nên dài hơn
+# hẳn: đo thực tế trung vị 2194 token, p90 2644. Để 1024 như trước sẽ cắt cụt
+# 99,9% số mẫu — cắt từ cuối, tức mất đúng phần đáp án cần học.
+# Bù lại độ dài tăng, giảm batch xuống 1 và tăng tích lũy để giữ nguyên batch
+# hiệu dụng (1x8 = 2x4) mà vẫn vừa bộ nhớ GPU.
+FT_BATCH = 1
+FT_GRAD_ACCUM = 8
+FT_MAX_LEN = 3072
 

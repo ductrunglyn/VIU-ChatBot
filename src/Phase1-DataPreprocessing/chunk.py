@@ -32,12 +32,30 @@ _KHOAN_RE = re.compile(r"(?m)^\s*(\d{1,2})\.\s+")
 
 
 def _find_dieu_boundaries(text: str):
-    """Lọc các match 'Điều N' thành chuỗi TĂNG DẦN (loại tham chiếu chéo lùi số)."""
-    kept, last = [], (0, "")
+    """Lọc các match 'Điều N' thành ranh giới thật, loại tham chiếu chéo.
+
+    Trả về danh sách (match, số_phần).
+
+    Quy tắc chính là số Điều phải TĂNG DẦN — tham chiếu chéo kiểu "quy định tại
+    Khoản 2, Điều 3" luôn lùi số nên bị loại.
+
+    Ngoại lệ: một tệp thường chứa NHIỀU phần đánh số độc lập — điển hình là
+    Quyết định ban hành (Điều 1-3) rồi tới Quy định đính kèm (Điều 1-10). Khi
+    gặp "Điều 1" ở ĐẦU DÒNG, đó là phần văn bản mới chứ không phải tham chiếu,
+    nên bắt đầu lại chuỗi đếm. Thiếu xử lý này thì Điều 1, 2, 3 của phần sau bị
+    loại và nội dung của chúng bị dồn vào khối hành chính phía trước.
+    """
+    kept, last, part = [], (0, ""), 1
     for m in _DIEU_RE.finditer(text):
         key = (int(m.group(1)), m.group(2) or "")
+        # Đầu dòng = ký tự trước đó là xuống dòng (hoặc là đầu tệp).
+        at_line_start = m.start() == 0 or text[m.start() - 1] == "\n"
         if key > last:
-            kept.append(m)
+            kept.append((m, part))
+            last = key
+        elif key[0] == 1 and at_line_start and kept:
+            part += 1                      # sang phần văn bản mới
+            kept.append((m, part))
             last = key
     return kept
 
@@ -128,9 +146,9 @@ def chunk_document(text: str, source: str) -> List[Chunk]:
 
 def _chunk_by_dieu(text, source, dieu_matches, chuong_matches) -> List[Chunk]:
     chunks: List[Chunk] = []
-    for idx, m in enumerate(dieu_matches):
+    for idx, (m, part) in enumerate(dieu_matches):
         start = m.start()
-        end = dieu_matches[idx + 1].start() if idx + 1 < len(dieu_matches) else len(text)
+        end = dieu_matches[idx + 1][0].start() if idx + 1 < len(dieu_matches) else len(text)
         block = text[start:end].strip()
         dieu_label = f"Điều {m.group(1)}{m.group(2) or ''}"
         # Tiêu đề Điều = phần chữ ngay sau "Điều N." tới trước khoản đầu ("1."),
@@ -146,7 +164,10 @@ def _chunk_by_dieu(text, source, dieu_matches, chuong_matches) -> List[Chunk]:
             pieces = _split_by_words(block, config.CHUNK_TARGET_WORDS,
                                      config.CHUNK_MAX_WORDS, config.CHUNK_OVERLAP_WORDS)
         for j, piece in enumerate(pieces):
-            cid = f"{source}::{dieu_label}" + (f"::p{j+1}" if len(pieces) > 1 else "")
+            # Tệp có nhiều phần đánh số riêng nên số Điều có thể lặp lại; thêm
+            # số phần vào mã chunk để không hai chunk nào trùng mã.
+            cid = (f"{source}::" + (f"phần {part}::" if part > 1 else "") + dieu_label
+                   + (f"::p{j+1}" if len(pieces) > 1 else ""))
             chunks.append(Chunk(
                 chunk_id=cid, source=source, text=piece, word_count=_wc(piece),
                 chuong=chuong, dieu=dieu_label,
