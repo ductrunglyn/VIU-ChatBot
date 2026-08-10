@@ -69,6 +69,12 @@ RERANK_FP16 = True         # nạp mô hình xếp hạng ở nửa độ chính
 #   câu NGOÀI phạm vi  : điểm cao nhất  đo được 0,025
 # Chọn 0,10 nằm giữa hai vùng, thiên về không chặn nhầm câu hỏi hợp lệ.
 RERANK_MIN_SCORE = 0.10
+# Mô hình xếp hạng chấm điểm rất thấp với câu hỏi diễn đạt dài/khẩu ngữ, dù đoạn
+# tài liệu thực sự trả lời được. Vì vậy chấp nhận câu hỏi khi MỘT trong hai tín
+# hiệu đủ mạnh: điểm xếp hạng, hoặc độ tương đồng ngữ nghĩa.
+# Đo thực tế: câu hợp lệ bị xếp hạng chấm thấp vẫn đạt tương đồng 0,566;
+# câu ngoài phạm vi cao nhất chỉ 0,508.
+DENSE_MIN_SCORE = 0.55
 
 # ---- Giai đoạn 5: Giao diện web (Gradio) ----
 UI_PORT = 7860

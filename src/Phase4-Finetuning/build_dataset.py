@@ -27,7 +27,10 @@ def _load_rows():
 
     qa_dir = config.DATA_PROCESSED.parent / "qa"
     rows = []
-    files = list(qa_dir.glob("*.csv")) + list(qa_dir.glob("*.xlsx"))
+    # Bỏ qua tệp sao lưu (*.bak.csv) do enrich_qa.py tạo ra: chúng chứa đáp án
+    # NGẮN trước khi làm giàu, nếu nạp vào sẽ kéo chất lượng dữ liệu xuống.
+    files = [p for p in list(qa_dir.glob("*.csv")) + list(qa_dir.glob("*.xlsx"))
+             if not p.name.endswith(".bak.csv")]
     if not files:
         print(f"⚠️  Không tìm thấy file .csv/.xlsx nào trong {qa_dir}")
         sys.exit(0)

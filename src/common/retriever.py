@@ -119,13 +119,21 @@ def retrieve(query: str, k: int = 5, candidates: int = None):
 
 
 def has_relevant(hits) -> bool:
-    """Có đoạn nào đủ liên quan không? Dùng để chặn suy diễn khi kho tri thức thiếu."""
+    """Có đoạn nào đủ liên quan không? Dùng để chặn suy diễn khi kho tri thức thiếu.
+
+    Xét HAI tín hiệu và chấp nhận nếu một trong hai đủ mạnh: điểm xếp hạng lại
+    (chính xác nhưng chấm rất thấp với câu hỏi khẩu ngữ dài) và độ tương đồng ngữ
+    nghĩa (ổn định hơn khi câu hỏi diễn đạt khác văn bản).
+    """
     if not hits:
         return False
-    top = hits[0].get("rerank_score")
-    if top is None:                      # không bật rerank -> dựa vào cosine
-        return (hits[0].get("score") or 0) >= config.RAG_MIN_SCORE
-    return top >= config.RERANK_MIN_SCORE
+    top_rr = hits[0].get("rerank_score")
+    top_dense = max((h.get("score") or 0) for h in hits)
+
+    if top_rr is None:                   # không bật rerank -> chỉ dựa vào tương đồng
+        return top_dense >= config.RAG_MIN_SCORE
+    return (top_rr >= config.RERANK_MIN_SCORE
+            or top_dense >= getattr(config, "DENSE_MIN_SCORE", 1.1))
 
 
 import re as _re

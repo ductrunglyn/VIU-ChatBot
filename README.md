@@ -122,6 +122,21 @@ Dạy LLM "văn phong & tư duy tư vấn" từ bộ Q/A của trường (4-bit 
   ```
 - **Cách 2 — Excel/CSV:** điền trực tiếp theo `data/qa/qa_pairs_template.csv`.
 
+**Bước 1b — Sinh và nâng chất lượng dữ liệu tự động** (dựa trên kho tri thức):
+```bash
+# Sinh Q/A bám nội dung từng Điều của mọi văn bản (đáp án chi tiết, có trích dẫn)
+python src/Phase4-Finetuning/gen_qa_from_docs.py
+
+# Sinh bộ câu hỏi sinh viên thường gặp, đáp án dựng từ văn bản thật
+python src/Phase4-Finetuning/gen_faq.py
+
+# Viết lại các đáp án quá ngắn thành đáp án chi tiết có căn cứ văn bản
+# (ghi đè tệp .csv, tự sao lưu bản gốc thành <tên>.bak.csv)
+python src/Phase4-Finetuning/enrich_qa.py            # thêm --dry-run để xem trước
+```
+> Ba công cụ này chỉ dùng nội dung có thật trong `data/processed/chunks.jsonl`.
+> Câu hỏi không tìm được căn cứ sẽ bị loại thay vì để mô hình bịa đáp án.
+
 **Bước 2 — Gộp dataset** (chống trùng theo nội dung câu hỏi):
 ```bash
 python src/Phase4-Finetuning/build_dataset.py   # -> data/qa/train.jsonl (chuẩn chat)
@@ -183,6 +198,9 @@ src/
 | `Phase3.../rag.py`             | RAG: truy xuất + LLM sinh câu trả lời (Giai đoạn 3) |
 | `Phase3.../test_rag.py`        | Test RAG theo lô câu hỏi (đánh giá chatbot) |
 | `Phase4.../docx_to_csv.py`     | Chuyển .docx câu hỏi → .csv |
+| `Phase4.../gen_qa_from_docs.py`| Sinh Q/A bám nội dung từng Điều trong kho tri thức |
+| `Phase4.../gen_faq.py`         | Sinh bộ câu hỏi sinh viên thường gặp kèm đáp án có căn cứ |
+| `Phase4.../enrich_qa.py`       | Viết lại đáp án ngắn thành đáp án chi tiết có trích dẫn |
 | `Phase4.../build_dataset.py`   | Gộp Q/A (CSV/XLSX) → `train.jsonl` |
 | `Phase4.../train_qlora.py`     | Fine-tune QLoRA → LoRA adapter (Giai đoạn 4) |
 | `Phase5.../app.py`             | Giao diện web chatbot (Gradio) (Giai đoạn 5) |
