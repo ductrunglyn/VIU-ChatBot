@@ -228,7 +228,9 @@ Hàm `format_source()` sinh chuỗi trích dẫn theo mẫu `"Điều X, <tên t
 - Tham số tối ưu: 8 vòng lặp, tốc độ học 2·10⁻⁴, kích thước lô 2, tích lũy gradient 4 bước, độ dài chuỗi tối đa 1024, bộ lập lịch cosine.
 - Mô-đun thay thế khuôn mẫu hội thoại bằng phiên bản có thẻ `{% generation %}` bao quanh nội dung câu trả lời (bao gồm cả token kết thúc lượt), cho phép bật `assistant_only_loss=True` — tức **hàm mất mát chỉ tính trên phần câu trả lời của trợ lý**, không tính trên phần câu hỏi và tài liệu.
 
-**Trạng thái bộ trọng số hiện tại.** Bộ điều hợp lưu tại `models/qlora-viu/` có dung lượng khoảng 57 MB, khai báo mô hình nền `Qwen/Qwen2.5-3B-Instruct` với các tham số LoRA đúng như cấu hình. Tuy nhiên, đối chiếu mốc thời gian cho thấy: **bộ trọng số này được sinh ra trước thời điểm bộ dữ liệu huấn luyện hiện tại được tạo lập**. Do đó bộ điều hợp đang được hệ thống nạp **không phải** kết quả huấn luyện trên tập 1.549 mẫu hiện có, mà là kết quả của một lần huấn luyện trước đó trên tập dữ liệu nhỏ hơn. Tại thời điểm khảo sát, một tiến trình huấn luyện lại đang được thực thi. **Số liệu chính xác về tập dữ liệu tương ứng với bộ trọng số cuối cùng cần được xác nhận lại sau khi tiến trình này kết thúc.**
+**Trạng thái bộ trọng số hiện tại.** Bộ điều hợp lưu tại `models/qlora-viu/` có dung lượng khoảng 57 MB, khai báo mô hình nền `Qwen/Qwen2.5-3B-Instruct` với các tham số LoRA đúng như cấu hình.
+
+Trong quá trình khảo sát, một tiến trình huấn luyện lại đã được thực thi và hoàn tất. Đối chiếu mốc thời gian sau khi tiến trình kết thúc xác nhận: **bộ trọng số hiện tại được sinh ra sau thời điểm tệp dữ liệu huấn luyện được tạo lập**, tức bộ điều hợp mà hệ thống đang nạp **là kết quả huấn luyện trên tập 1.549 mẫu hiện hành**. Các chỉ số quá trình huấn luyện (giá trị hàm mất mát, thời gian huấn luyện) chưa được ghi nhận vào tài liệu; đề nghị bổ sung từ nhật ký của lần chạy này (xem Chương 15).
 
 ### 4.6. Phân hệ 5 – Giao diện web
 
@@ -542,7 +544,7 @@ Tỉ lệ 79,9% đoạn mang siêu dữ liệu điều khoản là chỉ số c�
 | 1. Tiền xử lý dữ liệu | Cao | Hoạt động ổn định với `.docx`; nhánh xử lý ảnh quét chưa dùng đến ở cấu hình hiện tại; chưa hỗ trợ `.doc` |
 | 2. Vector hóa và lưu trữ | Cao | Vận hành đúng, dữ liệu nhất quán |
 | 3. Lõi RAG | Cao | Đầy đủ truy xuất hai tầng, sinh theo luồng, trích dẫn |
-| 4. Tinh chỉnh mô hình | Trung bình | Quy trình hoàn chỉnh; bộ trọng số đang dùng chưa tương ứng bộ dữ liệu mới nhất; định dạng dữ liệu huấn luyện chưa phản ánh tình huống RAG |
+| 4. Tinh chỉnh mô hình | Khá | Quy trình hoàn chỉnh; bộ trọng số đã huấn luyện trên tập 1.549 mẫu hiện hành; hạn chế còn lại: định dạng dữ liệu huấn luyện chưa phản ánh tình huống RAG (Mục 8.3) |
 | 5. Giao diện web | Trung bình – Khá | Đầy đủ chức năng hỏi–đáp; thiếu xác thực, nhật ký, quản trị |
 
 ---
@@ -644,9 +646,11 @@ Không có xác thực người dùng, không giới hạn tần suất truy v�
 
 ### 14.6. Hạn chế về khâu tinh chỉnh
 
-Hai vấn đề đã xác định: (i) bộ trọng số đang được nạp không tương ứng với bộ dữ liệu huấn luyện mới nhất; (ii) định dạng dữ liệu huấn luyện không chứa khối tài liệu truy xuất, nên không dạy được mô hình kỹ năng trả lời dựa trên tài liệu được cấp.
+Hạn chế chính đã xác định: **định dạng dữ liệu huấn luyện không chứa khối tài liệu truy xuất**, nên khâu tinh chỉnh dạy được văn phong và cách trả lời của cố vấn học tập nhưng không dạy được kỹ năng "đọc tài liệu được cấp rồi trả lời" (phân tích chi tiết tại Mục 8.3).
 
-*Định hướng:* hoàn tất huấn luyện lại trên bộ dữ liệu đầy đủ và xác nhận lại; nghiên cứu bổ sung dữ liệu huấn luyện có mô phỏng đúng định dạng RAG (câu hỏi kèm đoạn trích, đáp án có trích dẫn), nhằm dạy mô hình cả kỹ năng bám tài liệu chứ không chỉ văn phong.
+Bên cạnh đó, các chỉ số của quá trình huấn luyện chưa được lưu trữ có hệ thống; cấu hình hiện tại đặt `save_strategy="no"`, tức không lưu điểm kiểm tra trung gian, và `report_to="none"`, tức không kết nối công cụ theo dõi huấn luyện. Điều này gây khó khăn cho việc đối chiếu và tái lập kết quả giữa các lần huấn luyện.
+
+*Định hướng:* bổ sung dữ liệu huấn luyện mô phỏng đúng định dạng RAG (câu hỏi kèm đoạn trích, đáp án có trích dẫn) nhằm dạy mô hình cả kỹ năng bám tài liệu; bật cơ chế ghi nhận chỉ số huấn luyện và tách một phần dữ liệu làm tập kiểm định để theo dõi hiện tượng quá khớp.
 
 ### 14.7. Hạn chế về đánh giá
 
@@ -661,7 +665,7 @@ Chưa có bộ dữ liệu kiểm thử chuẩn, chưa có chỉ số định l�
 Các nội dung sau **không xác định được** từ mã nguồn, cấu hình và dữ liệu hiện có; đề nghị bổ sung trước khi hoàn thiện báo cáo chính thức:
 
 1. **Số liệu hiệu năng:** thời gian phản hồi trung bình, thời gian khởi động hệ thống, mức chiếm dụng bộ nhớ đồ họa khi vận hành. *(Đo được bằng cách chạy hệ thống khi GPU rảnh.)*
-2. **Kết quả huấn luyện của bộ trọng số cuối cùng:** tập dữ liệu tương ứng, số vòng lặp, giá trị hàm mất mát, thời gian huấn luyện.
+2. **Chỉ số quá trình huấn luyện:** giá trị hàm mất mát cuối cùng, thời gian huấn luyện, độ chính xác token của lần huấn luyện gần nhất. *(Có thể lấy từ nhật ký hiển thị trên màn hình khi chạy `train_qlora.py`; hiện chưa được ghi ra tệp do cấu hình `report_to="none"`.)*
 3. **Kết quả kiểm thử trên cơ sở tri thức hiện tại:** toàn văn câu trả lời cho bộ câu hỏi tại Mục 10.2, kèm đánh giá đúng/sai của cán bộ chuyên môn.
 4. **Thông tin đề tài:** tên đầy đủ, mã số, đơn vị chủ trì, chủ nhiệm đề tài, thời gian thực hiện.
 5. **Kế hoạch dữ liệu:** danh mục đầy đủ văn bản dự kiến đưa vào kho tri thức và lộ trình bổ sung.
@@ -725,7 +729,7 @@ Hệ thống chatbot hỗ trợ cố vấn học tập đã được xây dựng
 
 **Về mức độ hoàn thiện**, hệ thống đạt trạng thái sẵn sàng cho trình diễn và thử nghiệm nội bộ quy mô nhỏ. Báo cáo đã trình bày trung thực các hạn chế còn tồn tại, trong đó đáng lưu ý nhất là: quy mô cơ sở tri thức còn hẹp (144 đoạn từ 05 văn bản, chưa bao gồm khung chương trình đào tạo và một tệp bị bỏ qua do định dạng); cơ chế kiểm soát câu hỏi ngoài phạm vi hiện chỉ dựa vào ràng buộc lời nhắc mà chưa có tầng kiểm tra bằng mã; và hệ thống chưa có bộ đánh giá định lượng chính thức cũng như số liệu hiệu năng đã đo.
 
-Các hạn chế nêu trên đều đã được xác định nguyên nhân cụ thể trong mã nguồn và có hướng khắc phục rõ ràng, không phải là khiếm khuyết mang tính kiến trúc. Điều này cho thấy hệ thống có nền tảng kỹ thuật phù hợp để tiếp tục hoàn thiện thành sản phẩm triển khai thực tế, với các bước ưu tiên là: mở rộng cơ sở tri thức, hiện thực hóa cơ chế ngưỡng chặn, hoàn tất và xác nhận khâu tinh chỉnh, và xây dựng bộ đánh giá định lượng phục vụ đo lường khách quan chất lượng hệ thống.
+Các hạn chế nêu trên đều đã được xác định nguyên nhân cụ thể trong mã nguồn và có hướng khắc phục rõ ràng, không phải là khiếm khuyết mang tính kiến trúc. Điều này cho thấy hệ thống có nền tảng kỹ thuật phù hợp để tiếp tục hoàn thiện thành sản phẩm triển khai thực tế, với các bước ưu tiên theo thứ tự: (1) mở rộng cơ sở tri thức, trước hết là khắc phục tệp chưa được xử lý và bổ sung khung chương trình đào tạo; (2) hiện thực hóa cơ chế ngưỡng chặn theo điểm xếp hạng lại; (3) xây dựng bộ đánh giá định lượng tách riêng hai khâu truy xuất và sinh câu trả lời; (4) bổ sung dữ liệu tinh chỉnh theo đúng định dạng RAG; và (5) hoàn thiện các điều kiện vận hành phục vụ triển khai chính thức.
 
 ---
 
