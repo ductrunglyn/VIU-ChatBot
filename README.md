@@ -137,19 +137,38 @@ python src/Phase4-Finetuning/enrich_qa.py            # thêm --dry-run để xem
 > Ba công cụ này chỉ dùng nội dung có thật trong `data/processed/chunks.jsonl`.
 > Câu hỏi không tìm được căn cứ sẽ bị loại thay vì để mô hình bịa đáp án.
 
-**Bước 2 — Gộp dataset** (chống trùng theo nội dung câu hỏi):
+**Bước 2 — Gộp mọi tệp Q/A thành MỘT tệp duy nhất:**
 ```bash
-python src/Phase4-Finetuning/build_dataset.py   # -> data/qa/train.jsonl (chuẩn chat)
+python src/Phase4-Finetuning/merge_qa.py        # -> data/qa/qa_viu_full.csv
 ```
+Tệp gộp đánh id liên tục, bỏ câu trùng (giữ bản có đáp án dài hơn), thêm cột
+`origin` để truy vết tệp nguồn. Đây là tệp DUY NHẤT cần rà soát/chỉnh sửa về sau.
 
-**Bước 3 — Huấn luyện QLoRA** (adapter lưu ở `models/qlora-viu/`):
+> ⚠️ Sau khi đã sửa tay trong `qa_viu_full.csv`, **đừng chạy lại `merge_qa.py`** trừ
+> khi vừa bổ sung tệp Q/A mới: lệnh gộp đọc lại các tệp nguồn cũ và khi trùng câu
+> hỏi thì giữ bản có đáp án DÀI hơn, nên phần bạn rút gọn có thể bị ghi đè ngược.
+> Muốn thêm dữ liệu mới an toàn: xóa/di chuyển các tệp nguồn cũ trước khi gộp lại.
+
+**Bước 3 — Dựng tập huấn luyện** (mặc định **kèm khối TÀI LIỆU** giống lúc chạy thật):
+```bash
+python src/Phase4-Finetuning/build_dataset.py   # -> data/qa/train.jsonl
+```
+> **Vì sao phải kèm tài liệu:** lúc chạy thật, `rag.py` đưa cho mô hình khối
+> `TÀI LIỆU:` (các Điều truy xuất được) rồi mới tới `CÂU HỎI:`. Nếu huấn luyện chỉ
+> bằng *câu hỏi → đáp án*, mô hình học trả lời bằng trí nhớ theo một khuôn cố định
+> và khi chạy thật nó **bỏ qua tài liệu vừa truy xuất**, cho ra câu trả lời chung
+> chung dù tài liệu có đủ chi tiết. Dựng mẫu đúng như lúc suy luận thì mô hình mới
+> học đúng kỹ năng cần dùng: *đọc tài liệu được cấp → liệt kê đầy đủ → dẫn đúng tên văn bản*.
+>
+> Tùy chọn: `--k 3` (số Điều kèm mỗi mẫu), `--no-rag` (quay lại kiểu cũ).
+
+**Bước 4 — Huấn luyện QLoRA** (adapter lưu ở `models/qlora-viu/`):
 ```bash
 python src/Phase4-Finetuning/train_qlora.py
 ```
 Sau khi train xong, `rag.py` **tự động nạp adapter** (bật/tắt bằng `USE_FINETUNED`
 trong `common/config.py`). Tham số LoRA/epoch cũng ở `config.py`.
 
-> Hiện có ~500 cặp Q/A. Thêm dữ liệu rồi chạy lại 3 bước trên để cải thiện.
 > Chi tiết cấu trúc cột: xem **`data/qa/README.md`**.
 
 ---
@@ -166,7 +185,20 @@ Mở trình duyệt:
 - Trên chính máy chủ: **http://localhost:7860**
 - Máy khác cùng mạng LAN: **http://\<IP-máy-chủ\>:7860** (xem IP bằng `hostname -I`)
 
+**Giao diện có gì:**
+- Nhận diện thương hiệu Nhà trường: logo và màu chuẩn (xanh `#0082BC`, cam `#EA902F`),
+  ảnh nằm ở `assets/`, khai báo tập trung trong `Phase5-UI/theme.py`.
+- **Thanh bên lịch sử trò chuyện:** tạo đoạn chat mới, mở lại đoạn cũ, xóa đoạn.
+  Tên đoạn tự đặt theo câu hỏi đầu tiên.
+- Câu hỏi gợi ý bấm là điền sẵn, câu trả lời hiện dần kèm khối *Nguồn tham khảo*.
+
+> **Lịch sử chat lưu ở đâu?** Trong trình duyệt của chính sinh viên (`gr.BrowserState`
+> → localStorage), **không** lưu trên máy chủ. Nhờ vậy không cần cơ sở dữ liệu, và
+> không có chuyện người này đọc được đoạn chat của người kia. Đổi lại, xóa dữ liệu
+> trình duyệt hoặc đổi máy là mất lịch sử — đúng như mong đợi với dữ liệu học vụ cá nhân.
+
 > Dùng model đã fine-tune (nếu có adapter). Đổi cổng: `UI_PORT` trong `common/config.py`.
+> Số lượt hội thoại đưa vào ngữ cảnh: `UI_HISTORY_TURNS`.
 > Cần link công khai tạm thời (demo qua Internet): sửa `share=False` -> `share=True`
 > trong `app.py` — **cân nhắc** vì sẽ lộ chatbot + dữ liệu ra ngoài.
 
@@ -179,8 +211,9 @@ src/
   Phase1-DataPreprocessing/  extract · ocr · table_ocr · ocr_correct · clean · chunk · pipeline
   Phase2-Embedding/          embed · search
   Phase3-RAG/                rag · test_rag
-  Phase4-Finetuning/         docx_to_csv · build_dataset · train_qlora
-  Phase5-UI/                 app (giao diện web Gradio)
+  Phase4-Finetuning/         docx_to_csv · merge_qa · build_dataset · train_qlora
+  Phase5-UI/                 app (giao diện web Gradio) · theme (logo, màu, CSS)
+assets/                      viu_logo.png · viu_lockup.png — logo Trường ĐHCN Việt - Hung
 ```
 | File | Chức năng |
 |------|-----------|
@@ -201,9 +234,11 @@ src/
 | `Phase4.../gen_qa_from_docs.py`| Sinh Q/A bám nội dung từng Điều trong kho tri thức |
 | `Phase4.../gen_faq.py`         | Sinh bộ câu hỏi sinh viên thường gặp kèm đáp án có căn cứ |
 | `Phase4.../enrich_qa.py`       | Viết lại đáp án ngắn thành đáp án chi tiết có trích dẫn |
-| `Phase4.../build_dataset.py`   | Gộp Q/A (CSV/XLSX) → `train.jsonl` |
+| `Phase4.../merge_qa.py`        | Gộp mọi tệp Q/A rời → một tệp `qa_viu_full.csv` |
+| `Phase4.../build_dataset.py`   | Dựng `train.jsonl` kèm khối TÀI LIỆU (khớp lúc chạy thật) |
 | `Phase4.../train_qlora.py`     | Fine-tune QLoRA → LoRA adapter (Giai đoạn 4) |
-| `Phase5.../app.py`             | Giao diện web chatbot (Gradio) (Giai đoạn 5) |
+| `Phase5.../app.py`             | Giao diện web chatbot + lịch sử đoạn chat (Giai đoạn 5) |
+| `Phase5.../theme.py`           | Logo, màu thương hiệu và CSS của giao diện |
 
 > Giai đoạn 6 (triển khai) sẽ thêm `Phase6-Deploy/`.
 
