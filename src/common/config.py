@@ -19,7 +19,7 @@ CHUNK_MIN_WORDS = 40        # chunk quá ngắn sẽ được gộp với chunk 
 CHUNK_OVERLAP_WORDS = 50    # số từ chồng lấp giữa 2 chunk liền kề
 
 # ---- Định dạng file được hỗ trợ ----
-SUPPORTED_EXTS = {".pdf", ".docx", ".xlsx", ".xls", ".txt", ".md"}
+SUPPORTED_EXTS = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".txt", ".md"}
 
 # ---- Giai đoạn 2: Embedding & Vector Database ----
 EMBED_MODEL = "BAAI/bge-m3"          # đa ngôn ngữ, tiếng Việt tốt, chạy GPU
@@ -37,6 +37,22 @@ RAG_TOP_K = 5              # số chunk CUỐI đưa vào ngữ cảnh (sau rera
 RERANK_ENABLED = True
 RERANK_MODEL = "BAAI/bge-reranker-v2-m3"
 RETRIEVE_CANDIDATES = 20   # số ứng viên dense trước khi rerank
+
+# Truy xuất lai: kết hợp tìm theo TỪ KHÓA (BM25) với tìm theo NGỮ NGHĨA (vector).
+# Cần thiết vì câu hỏi thường chứa thuật ngữ chính xác (VSTEP, MOS, ICDL, tên học
+# phần...) mà vector ngữ nghĩa dễ bỏ sót.
+HYBRID_ENABLED = True
+BM25_CANDIDATES = 10       # số ứng viên lấy theo từ khóa
+RERANK_BATCH = 8           # chia lô nhỏ khi xếp hạng lại để tiết kiệm bộ nhớ GPU
+RERANK_FP16 = True         # nạp mô hình xếp hạng ở nửa độ chính xác (giảm ~50% VRAM)
+
+# Ngưỡng chặn chống suy diễn: nếu đoạn tốt nhất sau rerank có điểm dưới ngưỡng
+# này, coi như KHÔNG có tài liệu liên quan và trả lời "chưa tìm thấy quy định".
+# Giá trị hiệu chỉnh từ đo thực tế trên kho tri thức hiện tại:
+#   câu TRONG phạm vi  : điểm thấp nhất đo được 0,264
+#   câu NGOÀI phạm vi  : điểm cao nhất  đo được 0,025
+# Chọn 0,10 nằm giữa hai vùng, thiên về không chặn nhầm câu hỏi hợp lệ.
+RERANK_MIN_SCORE = 0.10
 
 # ---- Giai đoạn 5: Giao diện web (Gradio) ----
 UI_PORT = 7860

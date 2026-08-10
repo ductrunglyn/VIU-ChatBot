@@ -21,12 +21,17 @@ SYSTEM_PROMPT = (
     "Hãy trả lời câu hỏi của sinh viên DỰA HOÀN TOÀN trên phần TÀI LIỆU bên dưới.\n\n"
     "Cách trả lời:\n"
     "1. Trả lời TRỰC TIẾP câu hỏi ngay ở câu đầu tiên.\n"
-    "2. Nếu câu hỏi nêu con số cụ thể của sinh viên (CPA, điểm, số tín chỉ, số lần "
+    "2. Phải nêu ĐẦY ĐỦ và CHÍNH XÁC các chi tiết cụ thể có trong tài liệu: tên gọi, "
+    "con số, mốc điểm, bậc, thời hạn, điều kiện kèm theo. Nếu tài liệu liệt kê nhiều "
+    "mục (a, b, c...) thì phải liệt kê ĐỦ các mục, không tóm tắt chung chung. "
+    "TUYỆT ĐỐI không trả lời kiểu 'theo danh mục được công nhận' mà phải nêu rõ danh "
+    "mục đó gồm những gì theo đúng tài liệu.\n"
+    "3. Nếu câu hỏi nêu con số cụ thể của sinh viên (CPA, điểm, số tín chỉ, số lần "
     "cảnh báo...), hãy SO SÁNH con số đó với đúng mốc quy định trong tài liệu rồi mới "
     "kết luận. Phân biệt rõ các mức xử lý khác nhau — ví dụ 'cảnh báo học tập' KHÁC "
     "'buộc thôi học'; đừng nhầm lẫn mốc điểm của mức này sang mức kia.\n"
-    "3. Giải thích ngắn gọn căn cứ và nêu bước hành động cụ thể cho sinh viên nếu phù hợp.\n"
-    "4. Ghi nguồn [1], [2]... cho thông tin đã dùng.\n\n"
+    "4. Nêu bước hành động cụ thể cho sinh viên nếu phù hợp.\n"
+    "5. Ghi nguồn [1], [2]... cho thông tin đã dùng.\n\n"
     "Ràng buộc:\n"
     "- Chỉ dùng thông tin trong TÀI LIỆU; TUYỆT ĐỐI không bịa.\n"
     "- Nếu tài liệu không đủ thông tin, nói rõ là chưa tìm thấy trong quy định và khuyên "
@@ -72,7 +77,15 @@ def _build_context(hits):
 
 def answer(query: str, k: int = None, verbose: bool = True):
     k = k or config.RAG_TOP_K
-    hits = retriever.retrieve(query, k)   # đã rerank, lấy top-k tốt nhất
+    hits = retriever.retrieve(query, k)   # đã hợp nhất 2 nguồn + rerank
+    if not retriever.has_relevant(hits):
+        if verbose:
+            print("\n" + "=" * 70)
+            print("💬 TRẢ LỜI:\n")
+            print(NO_ANSWER)
+            print("=" * 70 + "\n")
+        return NO_ANSWER, []
+
     context, sources = _build_context(hits)
     user_msg = f"TÀI LIỆU:\n{context}\n\nCÂU HỎI: {query}"
 
@@ -99,16 +112,28 @@ def answer(query: str, k: int = None, verbose: bool = True):
     return reply, sources
 
 
+NO_ANSWER = (
+    "Em ơi, cô/thầy chưa tìm thấy nội dung này trong các văn bản quy định hiện có "
+    "của Nhà trường. Em vui lòng liên hệ Phòng Quản lý đào tạo hoặc cố vấn học tập "
+    "của lớp để được giải đáp chính xác nhé."
+)
+
+
 def _build_messages(query: str, history=None):
-    """Ghép system + lịch sử hội thoại + tài liệu truy xuất cho câu hỏi hiện tại."""
+    """Ghép system + lịch sử hội thoại + tài liệu truy xuất cho câu hỏi hiện tại.
+
+    Trả về (messages, sources, relevant). relevant=False nghĩa là không có đoạn nào
+    đủ liên quan -> phía gọi nên trả lời NO_ANSWER thay vì để mô hình suy diễn.
+    """
     hits = retriever.retrieve(query, config.RAG_TOP_K)
+    relevant = retriever.has_relevant(hits)
     context, sources = _build_context(hits)
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     for u, a in (history or []):
         messages.append({"role": "user", "content": u})
         messages.append({"role": "assistant", "content": a})
     messages.append({"role": "user", "content": f"TÀI LIỆU:\n{context}\n\nCÂU HỎI: {query}"})
-    return messages, sources
+    return messages, sources, relevant
 
 
 def answer_stream(query: str, history=None):
@@ -120,7 +145,11 @@ def answer_stream(query: str, history=None):
     from transformers import TextIteratorStreamer
 
     llm, tok = _load_llm()
-    messages, sources = _build_messages(query, history)
+    messages, sources, relevant = _build_messages(query, history)
+    if not relevant:
+        # Không có đoạn nào đủ liên quan -> không để mô hình suy diễn từ tài liệu lạc đề
+        yield NO_ANSWER, []
+        return
     text = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     inputs = tok([text], return_tensors="pt").to(llm.device)
     streamer = TextIteratorStreamer(tok, skip_prompt=True, skip_special_tokens=True)

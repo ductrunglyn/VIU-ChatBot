@@ -138,12 +138,20 @@ def extract_excel(path: Path) -> str:
     return "\n\n".join(out).strip()
 
 
+def extract_doc(path: Path) -> str:
+    """Trích văn bản từ tệp Word 97-2003 (.doc, định dạng nhị phân OLE2)."""
+    from doc_legacy import extract_doc_text
+    return extract_doc_text(path)
+
+
 def extract_file(path: Path) -> str:
     ext = path.suffix.lower()
     if ext == ".pdf":
         return extract_pdf(path)
     if ext == ".docx":
         return extract_docx(path)
+    if ext == ".doc":
+        return extract_doc(path)
     if ext in {".xlsx", ".xls"}:
         return extract_excel(path)
     if ext in {".txt", ".md"}:

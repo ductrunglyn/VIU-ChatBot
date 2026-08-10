@@ -56,8 +56,19 @@ def main():
         print("Re-chunk từ data/interim (bỏ qua OCR)...\n")
         all_chunks = rechunk_from_interim()
     else:
-        files = sorted(p for p in config.DATA_RAW.iterdir()
-                       if p.is_file() and p.suffix.lower() in config.SUPPORTED_EXTS)
+        all_files = [p for p in config.DATA_RAW.iterdir()
+                     if p.is_file() and not p.name.startswith(".")]
+        files = sorted(p for p in all_files
+                       if p.suffix.lower() in config.SUPPORTED_EXTS)
+        # Cảnh báo TƯỜNG MINH các tệp bị bỏ qua, tránh thiếu tri thức mà không biết
+        skipped = sorted(p for p in all_files
+                         if p.suffix.lower() not in config.SUPPORTED_EXTS)
+        if skipped:
+            print(f"⚠️  BỎ QUA {len(skipped)} tệp do định dạng chưa hỗ trợ "
+                  f"(nội dung sẽ KHÔNG có trong kho tri thức):")
+            for p in skipped:
+                print(f"     ✗ {p.name}")
+            print(f"     Định dạng hỗ trợ: {', '.join(sorted(config.SUPPORTED_EXTS))}\n")
         if not files:
             print(f"⚠️  Chưa có file nào trong {config.DATA_RAW}")
             print("    Hãy thả các file .pdf / .docx / .xlsx vào đó rồi chạy lại.")
