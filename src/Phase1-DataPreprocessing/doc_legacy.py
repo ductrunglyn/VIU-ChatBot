@@ -147,4 +147,7 @@ def _clean(text: str) -> str:
     }
     for a, b in repl.items():
         text = text.replace(a, b)
+    # Loại mọi ký tự điều khiển còn sót (NUL, ký tự đánh dấu nội bộ của Word...).
+    # Bắt buộc: ký tự NUL làm hỏng tệp CSV và gây lỗi ở các bước xử lý sau.
+    text = "".join(c for c in text if c in "\n\t" or ord(c) >= 32)
     return "\n".join(line.rstrip() for line in text.split("\n")).strip()

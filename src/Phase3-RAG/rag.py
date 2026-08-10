@@ -31,9 +31,16 @@ SYSTEM_PROMPT = (
     "kết luận. Phân biệt rõ các mức xử lý khác nhau — ví dụ 'cảnh báo học tập' KHÁC "
     "'buộc thôi học'; đừng nhầm lẫn mốc điểm của mức này sang mức kia.\n"
     "4. Nêu bước hành động cụ thể cho sinh viên nếu phù hợp.\n"
-    "5. Ghi nguồn [1], [2]... cho thông tin đã dùng.\n\n"
+    "5. Khi dẫn căn cứ, phải gọi ĐÚNG TÊN VĂN BẢN kèm số Điều — ví dụ: 'theo Quy "
+    "định về chuẩn đầu ra ngoại ngữ và tin học (Điều 3)'. TUYỆT ĐỐI KHÔNG viết "
+    "'theo Tài liệu [1]', 'Tài liệu 2' hay bất kỳ cách đánh số nào; người đọc "
+    "không biết các số đó là gì.\n\n"
     "Ràng buộc:\n"
     "- Chỉ dùng thông tin trong TÀI LIỆU; TUYỆT ĐỐI không bịa.\n"
+    "- CHỈ dùng những đoạn thực sự trả lời đúng câu hỏi. Các đoạn nói về chủ đề "
+    "KHÁC thì bỏ qua, KHÔNG trộn vào câu trả lời. Ví dụ: hỏi về ngoại ngữ/tiếng "
+    "Anh thì không đưa nội dung về tin học (MOS, ICDL, IC3, năng lực số) vào, và "
+    "ngược lại.\n"
     "- Nếu tài liệu không đủ thông tin, nói rõ là chưa tìm thấy trong quy định và khuyên "
     "sinh viên liên hệ phòng đào tạo / cố vấn học tập.\n"
     "- CHỈ trả lời bằng TIẾNG VIỆT, tuyệt đối KHÔNG chèn tiếng Trung hay tiếng Anh. "
@@ -66,13 +73,20 @@ def _load_llm():
 
 
 def _build_context(hits):
-    """Ghép các chunk thành khối TÀI LIỆU đánh số + danh sách nguồn."""
-    blocks, sources = [], []
-    for i, h in enumerate(hits, 1):
-        src = retriever.format_source(h["meta"])
-        blocks.append(f"[{i}] (Nguồn: {src})\n{h['text']}")
-        sources.append(f"[{i}] {src}")
-    return "\n\n".join(blocks), sources
+    """Ghép các chunk thành khối TÀI LIỆU + danh sách nguồn đã gộp theo văn bản.
+
+    Mỗi đoạn được gắn nhãn bằng TÊN VĂN BẢN và số Điều (không dùng số thứ tự [1],
+    [2]) để mô hình trích dẫn theo tên văn bản, ví dụ "theo Quy định về chuẩn đầu
+    ra ngoại ngữ và tin học (Điều 3)".
+    """
+    blocks = []
+    for h in hits:
+        meta = h["meta"]
+        doc = retriever._clean_doc_name(meta.get("source", ""))
+        dieu = meta.get("dieu")
+        label = f"{doc} — {dieu}" if dieu else doc
+        blocks.append(f"### {label}\n{h['text']}")
+    return "\n\n".join(blocks), retriever.group_sources(hits)
 
 
 def answer(query: str, k: int = None, verbose: bool = True):

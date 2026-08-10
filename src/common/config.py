@@ -21,6 +21,22 @@ CHUNK_OVERLAP_WORDS = 50    # số từ chồng lấp giữa 2 chunk liền kề
 # ---- Định dạng file được hỗ trợ ----
 SUPPORTED_EXTS = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".txt", ".md"}
 
+# ---- Tên hiển thị chuẩn của tài liệu ----
+# Tên tệp gốc thường có số thứ tự, viết tắt, chữ "sửa"... Bảng này quy đổi sang
+# tên văn bản đầy đủ để trích dẫn trong câu trả lời cho đúng và dễ hiểu.
+# Khóa: phần tên tệp không có đuôi. Tệp không có trong bảng sẽ được làm sạch tự động.
+DOC_TITLES = {
+    "1.quy chế đào tạo  220": "Quy chế đào tạo trình độ đại học",
+    "2.Quy định đào tạo trực tuyến": "Quy định về đào tạo trực tuyến",
+    "3.Quy định về CĐR ngoại ngữ và tin học sửa":
+        "Quy định về chuẩn đầu ra ngoại ngữ và tin học",
+    "4.Quy định về học phí, các khoản thu khác":
+        "Quy định về học phí và các khoản thu khác",
+    "5.Tai lieu huong dan LMS (ký)":
+        "Tài liệu hướng dẫn sử dụng hệ thống LMS",
+    "6.Luật giáo dục đại học": "Luật Giáo dục đại học",
+}
+
 # ---- Giai đoạn 2: Embedding & Vector Database ----
 EMBED_MODEL = "BAAI/bge-m3"          # đa ngôn ngữ, tiếng Việt tốt, chạy GPU
 VECTOR_DB_DIR = ROOT / "data" / "vectordb"   # ChromaDB lưu bền ở đây

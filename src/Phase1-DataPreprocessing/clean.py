@@ -17,6 +17,9 @@ _PAGE_RE = re.compile(r"<<<PAGE \d+>>>")
 
 def normalize_unicode(text: str) -> str:
     """NFC + thay các loại khoảng trắng / gạch nối lạ về dạng chuẩn."""
+    # Loại ký tự điều khiển (NUL và tương tự) trước khi chuẩn hóa: chúng làm hỏng
+    # tệp CSV/JSONL ở các bước sau và không mang nghĩa văn bản.
+    text = "".join(c for c in text if c in "\n\t" or ord(c) >= 32)
     text = unicodedata.normalize("NFC", text)
     text = text.replace(" ", " ").replace("\t", " ")
     text = text.replace("–", "-").replace("—", "-")  # en/em dash

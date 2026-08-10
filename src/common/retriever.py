@@ -132,18 +132,56 @@ import re as _re
 
 
 def _clean_doc_name(fname: str) -> str:
-    """Biến tên file thành tên tài liệu dễ đọc (bỏ đuôi, mã số, ngày tháng)."""
-    n = _re.sub(r"\.(pdf|docx?|xlsx?|txt|md)$", "", fname or "", flags=_re.I)
-    n = _re.sub(r"^\[[^\]]*\]", "", n)                 # bỏ '[26-08-2022 ...]' đầu
+    """Tên tài liệu để trích dẫn. Ưu tiên bảng DOC_TITLES, nếu không có thì làm sạch."""
+    stem = _re.sub(r"\.(pdf|docx?|xlsx?|txt|md)$", "", fname or "", flags=_re.I)
+    titles = getattr(config, "DOC_TITLES", {})
+    if stem in titles:
+        return titles[stem]
+
+    n = _re.sub(r"^\[[^\]]*\]", "", stem)              # bỏ '[26-08-2022 ...]' đầu
+    n = _re.sub(r"^\s*\d+\s*[.)-]\s*", "", n)          # bỏ số thứ tự đầu tên tệp
     n = _re.sub(r"qd-so-[\d-]+", "", n, flags=_re.I)   # bỏ mã 'qd-so-250-0001'
     n = _re.sub(r"[-_]?\d{4,}[-_\d]*", " ", n)          # bỏ chuỗi số dài (mã/ngày)
     n = _re.sub(r"[_]+", " ", n)
     n = _re.sub(r"\s{2,}", " ", n).strip(" -_.·")
-    return n or (fname or "").strip()
+    return n or stem.strip()
+
+
+def _dieu_num(dieu: str):
+    m = _re.search(r"\d+", dieu or "")
+    return int(m.group()) if m else 10**6
 
 
 def format_source(meta: dict) -> str:
-    """Trích dẫn gọn: 'Điều X, <tên tài liệu>' (KHÔNG kèm tên file)."""
+    """Trích dẫn một đoạn: 'Điều X, <tên tài liệu>'."""
     doc = _clean_doc_name(meta.get("source", ""))
     dieu = meta.get("dieu")
     return f"{dieu}, {doc}" if dieu else doc
+
+
+def group_sources(hits) -> list:
+    """Gộp trích dẫn theo tài liệu để hiển thị ngắn gọn.
+
+    Ví dụ 5 đoạn thuộc cùng một văn bản -> 'Điều 3, 5, 6 — Quy định về chuẩn đầu ra
+    ngoại ngữ và tin học' thay vì liệt kê 5 dòng lặp tên tài liệu.
+    """
+    order, by_doc = [], {}
+    for h in hits:
+        meta = h.get("meta", {})
+        doc = _clean_doc_name(meta.get("source", ""))
+        if doc not in by_doc:
+            by_doc[doc] = []
+            order.append(doc)
+        d = meta.get("dieu")
+        if d and d not in by_doc[doc]:
+            by_doc[doc].append(d)
+
+    out = []
+    for doc in order:
+        dieus = sorted(by_doc[doc], key=_dieu_num)
+        if dieus:
+            nums = ", ".join(_re.sub(r"^Điều\s*", "", d) for d in dieus)
+            out.append(f"Điều {nums} — {doc}")
+        else:
+            out.append(doc)
+    return out
