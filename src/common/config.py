@@ -76,6 +76,15 @@ RERANK_MIN_SCORE = 0.10
 # câu ngoài phạm vi cao nhất chỉ 0,508.
 DENSE_MIN_SCORE = 0.55
 
+# Lọc đoạn trước khi ghép vào ngữ cảnh: bỏ đoạn có điểm THẤP HƠN HẲN đoạn đầu bảng.
+# RAG_TOP_K đặt cao để không bỏ sót (recall), nhưng nhồi cả 5 đoạn vào ngữ cảnh thì
+# đoạn lạc đề lấn át đoạn đúng. Đo thực tế: hỏi "chương trình ngoại ngữ bao nhiêu
+# tín chỉ", đoạn đúng (Điều 4) chỉ 110 từ trong khi hai đoạn "Phạm vi điều chỉnh"
+# lạc đề chiếm 849/1307 từ — mô hình bỏ qua đoạn đúng và bịa ra nội dung.
+# Tỉ lệ điểm so với hạng 1 trên bộ câu kiểm thử: đoạn thật sự liên quan luôn từ
+# 0,26 trở lên; đoạn nhiễu tụt xuống 0,19 trở xuống. Chọn 0,25 nằm giữa hai vùng.
+CONTEXT_MIN_RATIO = 0.25
+
 # ---- Giai đoạn 5: Giao diện web (Gradio) ----
 UI_PORT = 7860
 UI_HISTORY_TURNS = 3       # số lượt hội thoại trước đưa vào ngữ cảnh (cho câu hỏi nối tiếp)

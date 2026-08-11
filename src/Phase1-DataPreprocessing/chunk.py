@@ -88,17 +88,26 @@ def _is_enacting(text: str) -> bool:
 # thật nên không thể bỏ cả khối, chỉ cắt từ chỗ này trở đi.
 _ADMIN_TAIL_RE = re.compile(r"\|?\s*Nơi nhận\s*:", re.IGNORECASE)
 
+# Khối chữ ký cuối văn bản: một dòng CHỈ có chức danh viết hoa, rồi tới tên người
+# ký. Bắt buộc khớp trọn dòng để không đụng vào câu nội dung như "do Hiệu trưởng
+# quyết định".
+_SIGN_TAIL_RE = re.compile(
+    r"(?m)^\s*\|?\s*(?:KT\.\s*|TL\.\s*|TM\.\s*)?"
+    r"(?:HIỆU TRƯỞNG|PHÓ HIỆU TRƯỞNG|CHỦ TỊCH HỘI ĐỒNG|DỰ THẢO)"
+    r"\s*\|?\s*$")
+
 
 def _strip_admin_tail(text: str) -> str:
-    """Cắt bỏ khối 'Nơi nhận / chữ ký' dính ở cuối đoạn nội dung.
+    """Cắt bỏ khối 'Nơi nhận / chữ ký / DỰ THẢO' dính ở cuối đoạn nội dung.
 
     Giữ lại phần đầu vì đó là quy định thật; chỉ cắt khi phần giữ lại vẫn còn đủ
     dài, tránh trường hợp cắt xong chunk rỗng.
     """
-    m = _ADMIN_TAIL_RE.search(text)
-    if not m:
+    cuts = [m.start() for m in (_ADMIN_TAIL_RE.search(text), _SIGN_TAIL_RE.search(text))
+            if m is not None]
+    if not cuts:
         return text
-    head = text[:m.start()].strip()
+    head = text[:min(cuts)].strip()
     return head if _wc(head) >= config.CHUNK_MIN_WORDS else text
 
 

@@ -89,6 +89,24 @@ def _gen_kwargs(tok):
     return kw
 
 
+def _select_for_context(hits):
+    """Chỉ giữ những đoạn có điểm xếp hạng đủ gần đoạn đầu bảng.
+
+    Truy xuất lấy dư đoạn để không bỏ sót, nhưng đưa hết vào ngữ cảnh thì đoạn
+    lạc đề (thường là "Phạm vi điều chỉnh", dài mấy trăm từ) lấn át đoạn trả lời
+    đúng và mô hình quay sang bịa. Ngưỡng đặt theo CONTEXT_MIN_RATIO.
+    """
+    scores = [h.get("rerank_score") for h in hits]
+    if not hits or any(s is None for s in scores):
+        return hits                      # không có điểm xếp hạng -> giữ nguyên
+    top = scores[0]
+    if not top or top <= 0:
+        return hits
+    ratio = getattr(config, "CONTEXT_MIN_RATIO", 0.25)
+    kept = [h for h, s in zip(hits, scores) if s >= top * ratio]
+    return kept or [hits[0]]             # luôn giữ ít nhất đoạn tốt nhất
+
+
 def _build_context(hits):
     """Ghép các chunk thành khối TÀI LIỆU + danh sách nguồn đã gộp theo văn bản.
 
@@ -96,14 +114,17 @@ def _build_context(hits):
     [2]) để mô hình trích dẫn theo tên văn bản, ví dụ "theo Quy định về chuẩn đầu
     ra ngoại ngữ và tin học (Điều 3)".
     """
+    # Trích nguồn phải khớp đúng những đoạn ĐÃ đưa vào ngữ cảnh. Liệt kê cả đoạn
+    # đã bị lọc bỏ thì sinh viên mở ra sẽ không thấy nội dung được nhắc tới.
+    used = _select_for_context(hits)
     blocks = []
-    for h in hits:
+    for h in used:
         meta = h["meta"]
         doc = retriever._clean_doc_name(meta.get("source", ""))
         dieu = meta.get("dieu")
         label = f"{doc} — {dieu}" if dieu else doc
         blocks.append(f"### {label}\n{h['text']}")
-    return "\n\n".join(blocks), retriever.group_sources(hits)
+    return "\n\n".join(blocks), retriever.group_sources(used)
 
 
 def answer(query: str, k: int = None, verbose: bool = True):
