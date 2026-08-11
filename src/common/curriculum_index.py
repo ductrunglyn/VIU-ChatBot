@@ -148,6 +148,38 @@ def _fmt_courses(rows: list[dict]) -> str:
     return "\n".join(out)
 
 
+def _ky_of(p: dict, sem: int) -> dict:
+    return next((h for h in p.get("hoc_ky", []) if h["hoc_ky"] == sem), {})
+
+
+def _exclusive_note(rows: list[dict], ky: dict) -> str:
+    """Cảnh báo các nhánh LOẠI TRỪ NHAU trong một học kỳ.
+
+    Nếu chỉ đưa danh sách học phần, mô hình sẽ cộng hết và ra số lớn hơn tổng
+    thật: học kỳ 6 ngành KT Nhiệt liệt kê 11 học phần cộng 35 tín chỉ, nhưng sinh
+    viên chỉ học 20 vì hai định hướng chuyên ngành là chọn MỘT, còn nhóm tự chọn
+    chỉ lấy 6 trong 9. Phải nói thẳng điều đó ra trong dữ kiện.
+    """
+    notes = []
+    tracks = sorted({r["dinh_huong"] for r in rows if r.get("dinh_huong")})
+    if len(tracks) > 1:
+        notes.append(f"Học kỳ này có {len(tracks)} định hướng chuyên ngành LOẠI TRỪ "
+                     f"NHAU ({'; '.join(tracks)}) — sinh viên chỉ học MỘT định hướng, "
+                     f"không cộng gộp cả hai.")
+    if any(r.get("he") for r in rows):
+        hes = sorted({r["he"] for r in rows if r.get("he")})
+        notes.append(f"Một số học phần chỉ dành cho hệ {', '.join(hes)}.")
+    if ky.get("tu_chon"):
+        listed = sum(r["tin_chi"] for r in rows if r.get("nhom") == "Tự chọn")
+        if listed > ky["tu_chon"]:
+            notes.append(f"Nhóm tự chọn liệt kê {listed:g} tín chỉ nhưng chỉ cần tích "
+                         f"lũy {ky['tu_chon']:g} tín chỉ.")
+    if ky.get("tong"):
+        notes.append(f"Vì vậy tổng tín chỉ THỰC PHẢI HỌC của học kỳ này là "
+                     f"{ky['tong']:g}, KHÔNG phải tổng cộng của mọi học phần liệt kê.")
+    return ("\n" + " ".join(notes)) if notes else ""
+
+
 def facts_for(question: str) -> str:
     """Khối DỮ KIỆN TRA CỨU cho câu hỏi, hoặc chuỗi rỗng nếu không liên quan."""
     if not is_curriculum_question(question):
@@ -200,7 +232,8 @@ def facts_for(question: str) -> str:
             sem_rows = [c for c in rows if c["hoc_ky"] == sem]
             if sem_rows:
                 parts.append(f"Danh sách học phần học kỳ {sem} của {program_label(p)}:\n"
-                             + _fmt_courses(sem_rows))
+                             + _fmt_courses(sem_rows)
+                             + _exclusive_note(sem_rows, _ky_of(p, sem)))
             else:
                 parts.append(f"Chương trình này không có dữ liệu học phần cho học kỳ {sem}.")
     return "\n\n".join(parts)

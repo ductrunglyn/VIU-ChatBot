@@ -110,6 +110,46 @@ def _ky_of(p, k):
     return next((h for h in p["hoc_ky"] if h["hoc_ky"] == k), None)
 
 
+def _bat_buoc_cau(h, rs, k, lbl) -> str:
+    """Câu trả lời cho "học kỳ K có mấy học phần bắt buộc".
+
+    Không lấy con số ở dòng nhãn "Bắt buộc" của tài liệu làm tổng cho danh sách
+    liệt kê: 10/48 học kỳ có nhãn KHÔNG khớp danh sách môn (tài liệu gộp khối kỹ
+    sư hoặc một định hướng vào nhãn đó, có tệp còn tự cộng lệch 1). Bản sinh cũ
+    ghép hai nguồn nên ra "11 học phần bắt buộc, tương ứng 14 tín chỉ" trong khi
+    danh sách kèm theo cộng đúng 35 — sai hiển nhiên khi sinh viên tự cộng lại.
+    Nên: con số đi kèm danh sách LUÔN cộng từ chính danh sách đó, còn nhãn của
+    tài liệu chỉ nêu riêng khi khác, kèm giải thích vì sao khác.
+    """
+    core = [c for c in rs if c["nhom"] == "Bắt buộc" and not c["he"]]
+    tong_core = sum(c["tin_chi"] for c in core)
+    parts = [f"Học kỳ {k} ({_nam_ky(k)}) ngành {lbl} có {len(core)} học phần "
+             f"bắt buộc, cộng lại {tong_core:g} tín chỉ: {_detail(core)}."]
+
+    # Định hướng chuyên ngành: các nhánh LOẠI TRỪ NHAU, sinh viên chỉ theo một.
+    dh = {}
+    for c in rs:
+        if c["nhom"] == "Định hướng chuyên ngành" and c["dinh_huong"]:
+            dh.setdefault(c["dinh_huong"], []).append(c)
+    if dh:
+        ten = "; ".join(f"{t} ({sum(x['tin_chi'] for x in cs):g} tín chỉ, "
+                        f"{len(cs)} học phần)" for t, cs in dh.items())
+        parts.append(f"Ngoài ra kỳ này có {len(dh)} định hướng chuyên ngành để chọn "
+                     f"MỘT: {ten}.")
+
+    ks = [c for c in rs if c["he"] == "Kỹ sư"]
+    if ks:
+        parts.append(f"Riêng hệ kỹ sư học thêm {len(ks)} học phần "
+                     f"({sum(c['tin_chi'] for c in ks):g} tín chỉ).")
+
+    if h.get("bat_buoc_khong_khop") and h.get("bat_buoc") is not None:
+        parts.append(f"Lưu ý: kế hoạch đào tạo ghi ở dòng \"Bắt buộc\" là "
+                     f"{h['bat_buoc']:g} tín chỉ — con số này đã gộp cả phần định "
+                     f"hướng hoặc phần dành riêng cho hệ kỹ sư, nên em căn theo "
+                     f"tổng {h['tong']:g} tín chỉ của cả học kỳ.")
+    return " ".join(parts)
+
+
 # --------------------------------------------------------------- mức trung bình
 def gen_medium(courses, programs):
     out = []
@@ -137,13 +177,10 @@ def gen_medium(courses, programs):
             rs = _rows_of(courses, p, k)
             if not rs:
                 continue
-            bb = [c for c in rs if c["nhom"] == "Bắt buộc"]
             key = f"{p['source']}|bb{k}"
             out.append((
                 PH.question("mon_bat_buoc_ky", key, hk=k, lbl=lbl, nam_ky=_nam_ky(k)),
-                f"Học kỳ {k} ({_nam_ky(k)}) ngành {lbl} có {len(bb)} học phần bắt buộc, "
-                f"tương ứng {h.get('bat_buoc', sum(c['tin_chi'] for c in bb)):g} tín chỉ: "
-                f"{_detail(bb)}. " + PH.closing(key)))
+                _bat_buoc_cau(h, rs, k, lbl) + " " + PH.closing(key)))
 
             forms = {}
             for c in rs:
@@ -190,6 +227,7 @@ def gen_hard(courses, programs):
         lbl, rows = _label(p), _rows_of(courses, p)
         bb = [c for c in rows if c["nhom"] == "Bắt buộc"]
         tc = [c for c in rows if c["nhom"] == "Tự chọn"]
+        dh = [c for c in rows if c["nhom"] == "Định hướng chuyên ngành"]
         tc_req = sum(h.get("tu_chon", 0) for h in p["hoc_ky"])
 
         out.append((
@@ -197,7 +235,9 @@ def gen_hard(courses, programs):
             f"Chương trình {lbl} yêu cầu {tc_req:g} tín chỉ tự chọn trên tổng "
             f"{_tong_str(p)}. Nhà trường liệt kê {len(tc)} học phần tự chọn để em chọn, "
             f"chỉ cần tích lũy đủ {tc_req:g} tín chỉ chứ không phải học hết. Phần còn lại "
-            f"là {len(bb)} học phần bắt buộc."))
+            f"là {len(bb)} học phần bắt buộc"
+            + (f", cùng {len(dh)} học phần thuộc các định hướng chuyên ngành mà em "
+               f"chỉ theo một" if dh else "") + "."))
 
         nam_max = max(h["hoc_ky"] for h in p["hoc_ky"]) // KY_MOI_NAM
         for nam in range(1, nam_max + 1):

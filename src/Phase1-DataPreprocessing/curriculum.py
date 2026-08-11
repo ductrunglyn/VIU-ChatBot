@@ -42,10 +42,66 @@ _HEADER_CELLS = {"tt", "mã hp", "ma hp", "tên học phần", "ten hoc phan", "
                  "so tin chi", "hptq", "ktđg", "ktdg"}
 _GROUP_ROWS = {"bắt buộc": "Bắt buộc", "tự chọn": "Tự chọn"}
 
+# Bảng kế hoạch có các NHÁNH LOẠI TRỪ NHAU mà bản bóc đầu tiên làm phẳng hết,
+# nên cộng dồn ra số sai. Ví dụ học kỳ 6 ngành KT Nhiệt:
+#     | Bắt buộc                               | 14 |   <- phải tích lũy 14
+#     |   Tiếng anh kỹ thuật                   |  2 |
+#     | 2.1 Chuyên ngành Nhiệt - Năng lượng CT | 12 |   ┐ sinh viên chỉ theo
+#     |   (3 học phần, cộng 12)                      │ MỘT trong hai
+#     | 2.2 Chuyên ngành Năng lượng Tái tạo    | 12 |   ┘ định hướng
+#     |   (4 học phần, cộng 12)
+#     | Dành cho hệ đào tạo kỹ sư              |  6 |   <- chỉ hệ kỹ sư học
+#     |   Tự chọn                              |  6 |   <- chọn 6 trong 9
+#     | Tổng                                   | 20 |
+# Cộng phẳng ra 35; đúng phải là 2 + 12 (một định hướng) = 14 bắt buộc, cộng 6 tự
+# chọn = 20. Vì vậy mỗi học phần cần mang thêm: thuộc ĐỊNH HƯỚNG nào và thuộc HỆ
+# nào, còn số tín chỉ của nhóm thì luôn đọc từ dòng nhãn chứ không cộng dòng con.
+_TRACK_RE = re.compile(r"^\s*\d+\.\d+\s*$")            # ô đầu "2.1", "2.2"
+# Học phần tự chọn cũng được đánh số "7.1", "7.2" y như dòng định hướng, nên chỉ
+# dựa vào ô đầu là nhận nhầm 40 học phần thành dòng phân nhóm (đã đo). Phân biệt
+# bằng ô kế: dòng học phần luôn có MÃ HỌC PHẦN 4-6 chữ số ở đó, dòng định hướng
+# thì ghi tên định hướng bằng chữ.
+_CODE_RE = re.compile(r"^\s*0?\d{4,6}\s*$")
+_TRACK_NAME_RE = re.compile(r"^\s*chuyên ngành\b", re.IGNORECASE)
+_HE_RE = re.compile(r"dành cho hệ đào tạo\s*(cử nhân|kỹ sư)", re.IGNORECASE)
+_HE_LABEL = {"cử nhân": "Cử nhân", "kỹ sư": "Kỹ sư"}
+
 
 def _num(s: str) -> Optional[float]:
     m = _CREDIT_RE.match((s or "").replace(",", "."))
     return float(m.group(1)) if m else None
+
+
+def _classify_group(cells: list[str]) -> Optional[tuple]:
+    """Nhận diện dòng PHÂN NHÓM. Trả về (loại, tên, số tín chỉ) hoặc None.
+
+    Nhãn nhóm không nằm cố định ở ô đầu: có bảng ghi ['Tự chọn', '2', ''], bảng
+    khác lại ghi ['', 'Tự chọn', '6', ''] (ô đầu để trống). Đọc cứng ô đầu là lý
+    do 46 dòng "Tự chọn" bị bỏ sót, khiến học phần tự chọn bị gán nhầm "Bắt buộc".
+    Nên tìm nhãn ở ô đầu, không thấy thì tìm ở ô thứ hai; số tín chỉ luôn nằm ở ô
+    ngay sau ô chứa nhãn.
+    """
+    for i in (0, 1):
+        if i >= len(cells):
+            break
+        label = cells[i].strip()
+        if not label:
+            continue
+        low = label.lower()
+        credit = _num(cells[i + 1]) if i + 1 < len(cells) else None
+
+        if low in _GROUP_ROWS:
+            return ("nhom", _GROUP_ROWS[low], credit)
+        if _HE_RE.search(low):
+            return ("he", _HE_LABEL[_HE_RE.search(low).group(1).lower()], credit)
+        # Định hướng chuyên ngành: ô đầu là số mục "2.1", tên nằm ở ô kế tiếp.
+        if (i == 0 and _TRACK_RE.match(label) and len(cells) > 1
+                and cells[1].strip() and not _CODE_RE.match(cells[1])):
+            return ("dinh_huong", cells[1].strip(), _num(cells[2]) if len(cells) > 2 else None)
+        if i == 1 and _TRACK_NAME_RE.match(label):
+            return ("dinh_huong", label, credit)
+        break            # ô đầu có chữ nhưng không khớp -> không phải dòng nhóm
+    return None
 
 
 def _collapse(cells: list[str]) -> list[str]:
@@ -102,13 +158,14 @@ def parse_file(path: pathlib.Path) -> list[dict]:
         khoa_hoc = f"K{m.group(1)}"
 
     records, hoc_ky, group = [], None, "Bắt buộc"
+    dinh_huong, he = "", ""
     totals: dict[int, dict] = {}
     for block in _iter_docx_blocks(doc):
         if not isinstance(block, Table):
             sm = _SEMESTER_RE.search(block.text or "")
             if sm:
                 hoc_ky = int(sm.group(1))
-                group = "Bắt buộc"
+                group, dinh_huong, he = "Bắt buộc", "", ""
             continue
         if hoc_ky is None:
             continue                     # bảng tiêu đề/thông tin chung, chưa vào học kỳ
@@ -117,16 +174,35 @@ def parse_file(path: pathlib.Path) -> list[dict]:
             if _is_header(cells):
                 continue
             first = cells[0].strip().lower()
-            if first in _GROUP_ROWS:      # dòng phân nhóm "Bắt buộc"/"Tự chọn"
-                group = _GROUP_ROWS[first]
-                # Dòng phân nhóm ghi luôn SỐ TÍN CHỈ PHẢI TÍCH LŨY của nhóm đó.
-                # Với nhóm tự chọn, con số này nhỏ hơn tổng các môn được liệt kê
-                # (sinh viên chỉ chọn đủ số tín chỉ yêu cầu) nên bắt buộc phải lấy
-                # từ đây thay vì cộng các dòng học phần.
-                n = _num(cells[1]) if len(cells) > 1 else None
-                if n is not None:
-                    key = "bat_buoc" if group == "Bắt buộc" else "tu_chon"
-                    totals.setdefault(hoc_ky, {})[key] = n
+            # Hai tệp đặt nhãn "Học kỳ N:" NGAY TRONG bảng chứ không ở đoạn văn.
+            if _SEMESTER_RE.match(first):
+                hoc_ky = int(_SEMESTER_RE.match(first).group(1))
+                group, dinh_huong, he = "Bắt buộc", "", ""
+                continue
+
+            kind = _classify_group(cells)
+            if kind:
+                what, name, n = kind
+                slot = totals.setdefault(hoc_ky, {})
+                if what == "nhom":
+                    # Sang nhóm mới thì thoát khỏi định hướng đang đọc dở, nhưng
+                    # GIỮ nguyên hệ: bảng ghi "Dành cho hệ kỹ sư" rồi mới tới
+                    # "Tự chọn", tức nhóm tự chọn đó nằm trong phần của hệ kỹ sư.
+                    group, dinh_huong = name, ""
+                    # Dòng nhãn ghi luôn SỐ TÍN CHỈ PHẢI TÍCH LŨY của nhóm. Với
+                    # nhóm tự chọn, số này nhỏ hơn tổng các môn được liệt kê (chọn
+                    # 6 trong 9), nên phải lấy ở đây thay vì cộng các dòng con.
+                    if n is not None:
+                        slot["bat_buoc" if name == "Bắt buộc" else "tu_chon"] = n
+                elif what == "he":
+                    he, dinh_huong = name, ""
+                    if n is not None:
+                        slot.setdefault("he", {})[name] = n
+                else:                                   # định hướng chuyên ngành
+                    dinh_huong, group = name, "Định hướng chuyên ngành"
+                    if n is not None:
+                        slot.setdefault("dinh_huong", []).append(
+                            {"ten": name, "tin_chi": n})
                 continue
             if first.startswith(("tổng", "tong")):
                 # Học kỳ cuối tách hai hệ, dòng tổng ghi "Tổng: Cử nhân/Kỹ sư | 12/18".
@@ -156,6 +232,8 @@ def parse_file(path: pathlib.Path) -> list[dict]:
                 "loai_hinh": meta.get("loai_hinh", ""),
                 "hoc_ky": hoc_ky,
                 "nhom": group,
+                "dinh_huong": dinh_huong,     # rỗng nếu môn không thuộc định hướng nào
+                "he": he,                     # rỗng = cả hai hệ; "Kỹ sư"/"Cử nhân"
                 "ma_hp": cells[1].strip(),
                 "ten_hp": cells[2].strip(),
                 "tin_chi": tin_chi,
@@ -170,6 +248,18 @@ def parse_file(path: pathlib.Path) -> list[dict]:
         if "tong" not in v:
             v["tong"] = v.get("bat_buoc", 0) + v.get("tu_chon", 0)
             v["tong_suy_ra"] = True
+
+    # Nhãn "Bắt buộc" KHÔNG cùng nghĩa giữa các tệp: có tệp ghi 15 = 9 môn lõi + 6
+    # của khối kỹ sư, tệp khác ghi 14 = 2 môn lõi + 12 của một định hướng, lại có
+    # tệp tự cộng lệch (ghi 19 trong khi 5 môn liệt kê cộng đúng 18). Không có
+    # cách suy ra thống nhất, nên ghi CẢ HAI con số và đánh dấu chỗ vênh; bộ sinh
+    # Q/A phải tránh khẳng định "học kỳ X có N tín chỉ bắt buộc" ở những kỳ này.
+    for k, v in totals.items():
+        liet_ke = sum(r["tin_chi"] for r in records
+                      if r["hoc_ky"] == k and r["nhom"] == "Bắt buộc" and not r["he"])
+        v["bat_buoc_liet_ke"] = liet_ke
+        if v.get("bat_buoc") is not None and abs(liet_ke - v["bat_buoc"]) > 0.01:
+            v["bat_buoc_khong_khop"] = True
 
     program = {
         "source": path.name,
