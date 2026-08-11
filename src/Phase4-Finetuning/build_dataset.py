@@ -33,6 +33,8 @@ import config
 
 REQUIRED = ["id", "category", "question", "answer"]
 MERGED_NAME = "qa_viu_full.csv"
+REFUSAL_NAME = "qa_tu_choi.csv"          # mẫu dạy mô hình nói "tài liệu không có"
+REFUSAL_CATEGORY = "Ngoài phạm vi kho tri thức"
 
 # Đáp án cũ đều kết thúc bằng ĐÚNG MỘT câu khuyên, lặp ở 30% số mẫu. Mô hình học
 # thuộc câu đó và đọc lại như phản xạ, cắt ngắn phần nội dung phía trước. Ta bỏ
@@ -68,7 +70,13 @@ def _load_rows():
     qa_dir = config.DATA_PROCESSED.parent / "qa"
     merged = qa_dir / MERGED_NAME
     if merged.exists():
-        files = [merged]
+        # Tệp gộp (đã rà soát tay) + các tệp SINH TỰ ĐỘNG kèm theo: mẫu từ chối,
+        # Q/A kế hoạch đào tạo... Cố ý không gộp chúng vào qa_viu_full.csv để mỗi
+        # lần sinh lại không ghi đè phần thầy cô đã chỉnh tay.
+        extra = sorted(p for p in qa_dir.glob("qa_*.csv")
+                       if p.name not in (MERGED_NAME,) and not p.name.endswith(".bak.csv")
+                       and p.name != "qa_pairs_template.csv")
+        files = [merged] + extra
     else:
         # Bỏ qua tệp sao lưu (*.bak.csv) do enrich_qa.py tạo: chúng chứa đáp án
         # NGẮN trước khi làm giàu, nạp vào sẽ kéo chất lượng dữ liệu xuống.
@@ -133,14 +141,19 @@ def main():
 
         answer = _vary_advice(r["answer"], i)
 
+        is_refusal = r.get("category") == REFUSAL_CATEGORY
+
         if with_rag:
             hits = retriever.retrieve(r["question"], args.k)
-            if not retriever.has_relevant(hits):
+            if not retriever.has_relevant(hits) and not is_refusal:
                 # Không có căn cứ trong kho tri thức: nếu vẫn huấn luyện, ta dạy
                 # mô hình bịa ra nội dung không có trong tài liệu. Bỏ mẫu này.
                 no_ctx += 1
                 continue
             context, _ = rag._build_context(hits)
+            # Mẫu TỪ CHỐI cố ý giữ lại đúng trường hợp khó: tài liệu truy xuất ra
+            # đúng chủ đề nhưng KHÔNG chứa con số/danh sách được hỏi. Bỏ chúng đi
+            # thì mô hình không bao giờ học được cách nói "tài liệu không có".
             user_msg = f"TÀI LIỆU:\n{context}\n\nCÂU HỎI: {r['question']}"
         else:
             user_msg = r["question"]

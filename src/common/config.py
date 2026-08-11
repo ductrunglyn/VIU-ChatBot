@@ -35,6 +35,20 @@ DOC_TITLES = {
     "5.Tai lieu huong dan LMS (ký)":
         "Tài liệu hướng dẫn sử dụng hệ thống LMS",
     "6.Luật giáo dục đại học": "Luật Giáo dục đại học",
+    # Kế hoạch đào tạo khoá 50 — tên tệp là chuỗi không dấu do hệ thống xuất ra,
+    # phải quy đổi sang tên ngành/chuyên ngành đúng để trích dẫn cho sinh viên hiểu.
+    "k50-cnkt-o-to-chuyen-nganh-cn-o-to-20260702075009-e":
+        "Kế hoạch đào tạo K50 ngành Công nghệ kỹ thuật ô tô, chuyên ngành Công nghệ ô tô",
+    "k50-cnkt-o-to-chuyen-nganh-cn-o-to-dien-20260702075009-e":
+        "Kế hoạch đào tạo K50 ngành Công nghệ kỹ thuật ô tô, chuyên ngành Công nghệ ô tô điện",
+    "k50-kto-to-chuyen-nganh-o-to-20260702075009-e":
+        "Kế hoạch đào tạo K50 ngành Kỹ thuật ô tô, chuyên ngành Ô tô",
+    "k50-kto-to-chuyen-nganh-xe-cd-mct-20260702075009-e":
+        "Kế hoạch đào tạo K50 ngành Kỹ thuật ô tô, chuyên ngành Xe chuyên dụng và máy công trình",
+    "ke-hoach-k50-cnkt-nhiet-20260702075009-e":
+        "Kế hoạch đào tạo K50 ngành Kỹ thuật nhiệt",
+    "ke-hoach-k50-kt-moi-truong-20260702075009-e":
+        "Kế hoạch đào tạo K50 ngành Kỹ thuật môi trường",
 }
 
 # ---- Giai đoạn 2: Embedding & Vector Database ----
@@ -88,7 +102,11 @@ CONTEXT_MIN_RATIO = 0.25
 # ---- Giai đoạn 5: Giao diện web (Gradio) ----
 UI_PORT = 7860
 UI_HISTORY_TURNS = 3       # số lượt hội thoại trước đưa vào ngữ cảnh (cho câu hỏi nối tiếp)
-LLM_MAX_NEW_TOKENS = 512   # độ dài tối đa câu trả lời
+# Độ dài tối đa câu trả lời. 512 từng cắt cụt giữa chừng ("...việc thống báo hình
+# thức áp dụng đối với sinh viên như") khi mô hình trích dài. Nới lên để câu trả
+# lời luôn kết thúc trọn vẹn; muốn ngắn gọn thì sửa ở dữ liệu huấn luyện chứ
+# không phải chặn cứng ở đây.
+LLM_MAX_NEW_TOKENS = 900
 # 0 = giải mã tất định (greedy): cùng câu hỏi luôn ra cùng câu trả lời, và mô hình
 # không còn cơ hội chọn token lệch rồi bịa tiếp đoạn quy định không có thật. Với
 # chatbot trích dẫn quy chế thì tính nhất quán quan trọng hơn sự đa dạng câu chữ.

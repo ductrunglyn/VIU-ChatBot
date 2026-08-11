@@ -105,20 +105,53 @@ def extract_pdf(path: Path, use_ocr: bool = True, min_chars: int = 30) -> str:
     return body
 
 
+def _iter_docx_blocks(doc):
+    """Duyệt đoạn văn và bảng THEO ĐÚNG THỨ TỰ xuất hiện trong file.
+
+    python-docx cho sẵn doc.paragraphs và doc.tables nhưng là hai danh sách rời,
+    mất thứ tự xen kẽ. Với kế hoạch đào tạo thì đó là lỗi chí mạng: tài liệu viết
+    "Học kỳ 1:" rồi tới bảng học phần của kỳ 1, "Học kỳ 2:" rồi bảng kỳ 2... Xuất
+    hết tiêu đề trước rồi mới xuất 11 bảng liền nhau thì không còn biết bảng nào
+    thuộc kỳ nào.
+    """
+    from docx.oxml.table import CT_Tbl
+    from docx.oxml.text.paragraph import CT_P
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
+
+    for child in doc.element.body.iterchildren():
+        if isinstance(child, CT_P):
+            yield Paragraph(child, doc)
+        elif isinstance(child, CT_Tbl):
+            yield Table(child, doc)
+
+
+def _dedupe_merged(row: List[str]) -> List[str]:
+    """Ô gộp bị python-docx lặp lại text ra mọi cột ("Bắt buộc | Bắt buộc | 15").
+
+    Giữ lần xuất hiện đầu, các ô lặp liền kề để trống cho bảng dễ đọc.
+    """
+    out = []
+    for i, cell in enumerate(row):
+        out.append("" if i > 0 and cell == row[i - 1] else cell)
+    return out
+
+
 def extract_docx(path: Path) -> str:
-    """Trích text + bảng từ file Word."""
+    """Trích text + bảng từ file Word, giữ nguyên thứ tự tiêu đề - bảng."""
     from docx import Document
+    from docx.table import Table
 
     doc = Document(path)
     out: List[str] = []
-    for para in doc.paragraphs:
-        if para.text.strip():
-            out.append(para.text)
-    for tbl in doc.tables:
-        rows = [[cell.text for cell in row.cells] for row in tbl.rows]
-        md = _table_to_markdown(rows)
-        if md:
-            out.append("\n" + md + "\n")
+    for block in _iter_docx_blocks(doc):
+        if isinstance(block, Table):
+            rows = [_dedupe_merged([c.text.strip() for c in r.cells]) for r in block.rows]
+            md = _table_to_markdown(rows)
+            if md:
+                out.append("\n" + md + "\n")
+        elif block.text.strip():
+            out.append(block.text.strip())
     return "\n".join(out).strip()
 
 

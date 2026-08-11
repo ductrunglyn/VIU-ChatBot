@@ -10,11 +10,13 @@ Cách dùng:
 """
 from __future__ import annotations
 import argparse
+import re
 import sys as _sys, pathlib as _pathlib
 
 _sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[1] / "common"))
 import config
 import retriever
+import curriculum_index
 
 SYSTEM_PROMPT = (
     "Bạn là trợ lý cố vấn học tập của Trường Đại học Công nghiệp Việt - Hung. "
@@ -35,6 +37,11 @@ SYSTEM_PROMPT = (
     "định về chuẩn đầu ra ngoại ngữ và tin học (Điều 3)'. TUYỆT ĐỐI KHÔNG viết "
     "'theo Tài liệu [1]', 'Tài liệu 2' hay bất kỳ cách đánh số nào; người đọc "
     "không biết các số đó là gì.\n\n"
+    "6. Nếu TÀI LIỆU có khối 'DỮ KIỆN TRA CỨU TỪ KẾ HOẠCH ĐÀO TẠO' thì đó là số "
+    "liệu đã tra sẵn, CHÍNH XÁC — hãy dùng đúng con số/danh sách trong đó, không "
+    "tự cộng lại và không lấy số ở chỗ khác. Nếu khối này ghi rõ kho dữ liệu KHÔNG "
+    "có ngành nào đó, phải nói thẳng là chưa có dữ liệu ngành đó, TUYỆT ĐỐI không "
+    "tự nghĩ ra số tín chỉ hay danh sách môn học.\n\n"
     "Ràng buộc:\n"
     "- Chỉ dùng thông tin trong TÀI LIỆU; TUYỆT ĐỐI không bịa.\n"
     "- CHỈ dùng những đoạn thực sự trả lời đúng câu hỏi. Các đoạn nói về chủ đề "
@@ -89,6 +96,28 @@ def _gen_kwargs(tok):
     return kw
 
 
+_ANAPHORA_RE = re.compile(
+    r"\b(đó|này|kia|vậy|nêu trên|ở trên|nói trên|như trên|còn|thế còn)\b", re.IGNORECASE)
+
+
+def _retrieval_query(query: str, history=None) -> str:
+    """Câu hỏi truy xuất, có ghép ngữ cảnh cho câu hỏi NỐI TIẾP.
+
+    Sinh viên hay hỏi tiếp kiểu "danh mục được công nhận là gồm những chứng chỉ
+    gì" — câu này thiếu chủ đề nên truy xuất trượt hoàn toàn và chatbot trả lời
+    "chưa tìm thấy", dù câu hỏi trước đó đã nói rõ là về chứng chỉ ngoại ngữ.
+    Khi câu hỏi ngắn hoặc có từ thay thế ("đó", "này", "vậy"), ghép thêm câu hỏi
+    liền trước để truy xuất bắt đúng chủ đề.
+    """
+    if not history:
+        return query
+    if len(query.split()) <= 12 or _ANAPHORA_RE.search(query):
+        prev_q = (history[-1][0] or "").strip()
+        if prev_q:
+            return f"{prev_q} {query}"
+    return query
+
+
 def _select_for_context(hits):
     """Chỉ giữ những đoạn có điểm xếp hạng đủ gần đoạn đầu bảng.
 
@@ -107,7 +136,7 @@ def _select_for_context(hits):
     return kept or [hits[0]]             # luôn giữ ít nhất đoạn tốt nhất
 
 
-def _build_context(hits):
+def _build_context(hits, question: str = ""):
     """Ghép các chunk thành khối TÀI LIỆU + danh sách nguồn đã gộp theo văn bản.
 
     Mỗi đoạn được gắn nhãn bằng TÊN VĂN BẢN và số Điều (không dùng số thứ tự [1],
@@ -118,6 +147,13 @@ def _build_context(hits):
     # đã bị lọc bỏ thì sinh viên mở ra sẽ không thấy nội dung được nhắc tới.
     used = _select_for_context(hits)
     blocks = []
+    # Câu hỏi về kế hoạch đào tạo được TRA CỨU trực tiếp trên dữ liệu bảng đã bóc,
+    # vì con số như "tổng tín chỉ toàn khoá" không nằm sẵn ở đoạn văn nào — phải
+    # cộng nhiều học kỳ, mà mô hình tự cộng thì bịa.
+    facts = curriculum_index.facts_for(question) if question else ""
+    if facts:
+        blocks.append("### DỮ KIỆN TRA CỨU TỪ KẾ HOẠCH ĐÀO TẠO (chính xác, ưu tiên dùng)\n"
+                      + facts)
     for h in used:
         meta = h["meta"]
         doc = retriever._clean_doc_name(meta.get("source", ""))
@@ -127,10 +163,20 @@ def _build_context(hits):
     return "\n\n".join(blocks), retriever.group_sources(used)
 
 
+def _is_relevant(query: str, hits) -> bool:
+    """Có căn cứ để trả lời không.
+
+    Ngoài tín hiệu truy xuất trên văn bản, còn tính cả trường hợp tra được dữ kiện
+    trong kế hoạch đào tạo — câu "ngành X tổng bao nhiêu tín chỉ" thường không
+    khớp đoạn văn nào nên nếu chỉ nhìn truy xuất sẽ bị từ chối oan.
+    """
+    return retriever.has_relevant(hits) or bool(curriculum_index.facts_for(query))
+
+
 def answer(query: str, k: int = None, verbose: bool = True):
     k = k or config.RAG_TOP_K
     hits = retriever.retrieve(query, k)   # đã hợp nhất 2 nguồn + rerank
-    if not retriever.has_relevant(hits):
+    if not _is_relevant(query, hits):
         if verbose:
             print("\n" + "=" * 70)
             print("💬 TRẢ LỜI:\n")
@@ -138,7 +184,7 @@ def answer(query: str, k: int = None, verbose: bool = True):
             print("=" * 70 + "\n")
         return NO_ANSWER, []
 
-    context, sources = _build_context(hits)
+    context, sources = _build_context(hits, query)
     user_msg = f"TÀI LIỆU:\n{context}\n\nCÂU HỎI: {query}"
 
     llm, tok = _load_llm()
@@ -173,9 +219,9 @@ def _build_messages(query: str, history=None):
     Trả về (messages, sources, relevant). relevant=False nghĩa là không có đoạn nào
     đủ liên quan -> phía gọi nên trả lời NO_ANSWER thay vì để mô hình suy diễn.
     """
-    hits = retriever.retrieve(query, config.RAG_TOP_K)
-    relevant = retriever.has_relevant(hits)
-    context, sources = _build_context(hits)
+    hits = retriever.retrieve(_retrieval_query(query, history), config.RAG_TOP_K)
+    relevant = _is_relevant(query, hits)
+    context, sources = _build_context(hits, query)
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     for u, a in (history or []):
         messages.append({"role": "user", "content": u})
