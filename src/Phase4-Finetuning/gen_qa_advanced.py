@@ -123,8 +123,14 @@ def _bat_buoc_cau(h, rs, k, lbl) -> str:
     """
     core = [c for c in rs if c["nhom"] == "Bắt buộc" and not c["he"]]
     tong_core = sum(c["tin_chi"] for c in core)
-    parts = [f"Học kỳ {k} ({_nam_ky(k)}) ngành {lbl} có {len(core)} học phần "
-             f"bắt buộc, cộng lại {tong_core:g} tín chỉ: {_detail(core)}."]
+    if core:
+        parts = [f"Học kỳ {k} ({_nam_ky(k)}) ngành {lbl} có {len(core)} học phần "
+                 f"bắt buộc, cộng lại {tong_core:g} tín chỉ: {_detail(core)}."]
+    else:
+        # Học kỳ cuối tách hẳn theo hệ nên không có môn bắt buộc dùng chung. Nói
+        # "có 0 học phần bắt buộc" rồi bỏ trống danh sách là câu vô nghĩa.
+        parts = [f"Học kỳ {k} ({_nam_ky(k)}) ngành {lbl} không có học phần bắt buộc "
+                 f"chung, vì kỳ này chia riêng theo hệ đào tạo."]
 
     # Định hướng chuyên ngành: các nhánh LOẠI TRỪ NHAU, sinh viên chỉ theo một.
     dh = {}
@@ -137,10 +143,11 @@ def _bat_buoc_cau(h, rs, k, lbl) -> str:
         parts.append(f"Ngoài ra kỳ này có {len(dh)} định hướng chuyên ngành để chọn "
                      f"MỘT: {ten}.")
 
-    ks = [c for c in rs if c["he"] == "Kỹ sư"]
-    if ks:
-        parts.append(f"Riêng hệ kỹ sư học thêm {len(ks)} học phần "
-                     f"({sum(c['tin_chi'] for c in ks):g} tín chỉ).")
+    for he in ("Cử nhân", "Kỹ sư"):
+        cs = [c for c in rs if c["he"] == he]
+        if cs:
+            parts.append(f"Hệ {he.lower()} học {len(cs)} học phần riêng "
+                         f"({sum(c['tin_chi'] for c in cs):g} tín chỉ): {_detail(cs)}.")
 
     if h.get("bat_buoc_khong_khop") and h.get("bat_buoc") is not None:
         parts.append(f"Lưu ý: kế hoạch đào tạo ghi ở dòng \"Bắt buộc\" là "
