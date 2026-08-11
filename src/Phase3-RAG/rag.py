@@ -72,6 +72,23 @@ def _load_llm():
     return _llm, _tok
 
 
+def _gen_kwargs(tok):
+    """Tham số sinh văn bản.
+
+    Với chatbot trích dẫn quy chế, lấy mẫu ngẫu nhiên là hại chứ không lợi: cùng
+    một câu hỏi có thể ra hai câu trả lời khác nhau, và ở nhiệt độ thấp mô hình
+    vẫn thỉnh thoảng chọn token lệch rồi bịa tiếp cả đoạn quy định không có thật.
+    Đặt LLM_TEMPERATURE = 0 để chuyển sang giải mã tất định (greedy).
+    """
+    kw = {"max_new_tokens": config.LLM_MAX_NEW_TOKENS,
+          "pad_token_id": tok.eos_token_id}
+    if config.LLM_TEMPERATURE and config.LLM_TEMPERATURE > 0:
+        kw.update(do_sample=True, temperature=config.LLM_TEMPERATURE, top_p=0.9)
+    else:
+        kw.update(do_sample=False)
+    return kw
+
+
 def _build_context(hits):
     """Ghép các chunk thành khối TÀI LIỆU + danh sách nguồn đã gộp theo văn bản.
 
@@ -108,11 +125,7 @@ def answer(query: str, k: int = None, verbose: bool = True):
                 {"role": "user", "content": user_msg}]
     text = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     inputs = tok([text], return_tensors="pt").to(llm.device)
-    gen = llm.generate(
-        **inputs, max_new_tokens=config.LLM_MAX_NEW_TOKENS,
-        do_sample=True, temperature=config.LLM_TEMPERATURE, top_p=0.9,
-        pad_token_id=tok.eos_token_id,
-    )
+    gen = llm.generate(**inputs, **_gen_kwargs(tok))
     reply = tok.decode(gen[0][inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
 
     if verbose:
@@ -167,9 +180,7 @@ def answer_stream(query: str, history=None):
     text = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     inputs = tok([text], return_tensors="pt").to(llm.device)
     streamer = TextIteratorStreamer(tok, skip_prompt=True, skip_special_tokens=True)
-    kwargs = dict(**inputs, max_new_tokens=config.LLM_MAX_NEW_TOKENS,
-                  do_sample=True, temperature=config.LLM_TEMPERATURE, top_p=0.9,
-                  pad_token_id=tok.eos_token_id, streamer=streamer)
+    kwargs = dict(**inputs, **_gen_kwargs(tok), streamer=streamer)
     threading.Thread(target=llm.generate, kwargs=kwargs).start()
     acc = ""
     for piece in streamer:

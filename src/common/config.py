@@ -80,7 +80,10 @@ DENSE_MIN_SCORE = 0.55
 UI_PORT = 7860
 UI_HISTORY_TURNS = 3       # số lượt hội thoại trước đưa vào ngữ cảnh (cho câu hỏi nối tiếp)
 LLM_MAX_NEW_TOKENS = 512   # độ dài tối đa câu trả lời
-LLM_TEMPERATURE = 0.1      # rất thấp = bám tài liệu, ổn định, tránh rò tiếng Trung/Anh
+# 0 = giải mã tất định (greedy): cùng câu hỏi luôn ra cùng câu trả lời, và mô hình
+# không còn cơ hội chọn token lệch rồi bịa tiếp đoạn quy định không có thật. Với
+# chatbot trích dẫn quy chế thì tính nhất quán quan trọng hơn sự đa dạng câu chữ.
+LLM_TEMPERATURE = 0
 RAG_MIN_SCORE = 0.35       # điểm tương đồng tối thiểu để coi là có thông tin liên quan
 
 # ---- Giai đoạn 4: Fine-tuning QLoRA ----
@@ -90,11 +93,17 @@ USE_FINETUNED = True        # rag.py tự nạp adapter nếu ADAPTER_DIR tồn 
 LORA_R = 16
 LORA_ALPHA = 32
 LORA_DROPOUT = 0.05
-# Số vòng huấn luyện: đặt theo kích thước dữ liệu VÀ mức độ học thuộc quan sát được.
-# Với ~1800 mẫu dài (có kèm tài liệu), chạy 3 vòng làm loss tụt còn 0,08 và mô hình
-# đọc lại nguyên văn đoạn tài liệu đã thuộc thay vì đọc tài liệu đang được cấp.
-# 2 vòng đủ để học văn phong và cách trích dẫn mà chưa thuộc lòng nội dung.
-FT_EPOCHS = 2
+# Số vòng huấn luyện. Đã thử nghiệm trên chính bộ dữ liệu này (~1800 mẫu có kèm
+# tài liệu), kết quả đo được:
+#   3 vòng + dữ liệu CHƯA sạch: bám tài liệu tốt, nhưng đọc lại nguyên văn đoạn
+#       thủ tục hành chính vì đoạn đó nằm sẵn trong 230 đáp án huấn luyện.
+#   2 vòng + dữ liệu đã sạch  : hết đoạn thủ tục, nhưng CHƯA học được kỹ năng đọc
+#       tài liệu — hỏi "chương trình ngoại ngữ bao nhiêu tín chỉ" thì bỏ qua Điều 4
+#       xếp hạng 1 (điểm 0,9995) và bịa ra nội dung của một "Điều 3" không có
+#       trong ngữ cảnh. Giải mã tất định cũng không cứu được.
+# Vậy nút thắt là số vòng, không phải mức học thuộc: quay lại 3 vòng trên dữ liệu
+# đã làm sạch.
+FT_EPOCHS = 3
 FT_LR = 2e-4
 # Mẫu huấn luyện nay kèm cả khối TÀI LIỆU (giống hệt lúc chạy thật) nên dài hơn
 # hẳn: đo thực tế trung vị 2194 token, p90 2644. Để 1024 như trước sẽ cắt cụt
