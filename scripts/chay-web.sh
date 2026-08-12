@@ -15,35 +15,69 @@ GOC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PHIEN="ChatBot"
 NHAT_KY="$GOC/web.log"
 
-tim_python() {
-  # 1. Người dùng chỉ định thẳng
-  [[ -n "${PY:-}" ]] && { echo "$PY"; return; }
-  # 2. Chỉ định tên env
-  if [[ -n "${ENV:-}" ]]; then
-    for goc in "$HOME/miniconda3" "$HOME/anaconda3" "$HOME/miniforge3" "/opt/conda"; do
-      [[ -x "$goc/envs/$ENV/bin/python" ]] && { echo "$goc/envs/$ENV/bin/python"; return; }
+du_goi() { [[ -x "$1" ]] && "$1" -c "import gradio, torch" 2>/dev/null; }
+
+# Liệt kê mọi env conda. HỎI THẲNG CONDA thay vì đoán vị trí cài: bản trước dò
+# cứng 4 thư mục ($HOME/miniconda3, anaconda3, miniforge3, /opt/conda) nên máy
+# nào cài chỗ khác là trượt, kể cả khi đã chỉ đúng tên env.
+liet_ke_env() {
+  local conda="${CONDA_EXE:-}"
+  [[ -x "$conda" ]] || conda="$(command -v conda 2>/dev/null || true)"
+  if [[ -z "$conda" ]]; then
+    for g in "$HOME/miniconda3" "$HOME/anaconda3" "$HOME/miniforge3" \
+             "$HOME/mambaforge" "$HOME/conda" "/opt/conda" "/usr/local/conda"; do
+      [[ -x "$g/bin/conda" ]] && { conda="$g/bin/conda"; break; }
     done
+  fi
+  # `conda env list` in ra: "tên   *   /đường/dẫn" (dấu * là env đang bật)
+  [[ -x "$conda" ]] && "$conda" env list 2>/dev/null \
+    | awk '!/^#/ && NF {print $NF}' | grep '^/' || true
+  # Dự phòng khi không gọi được conda: quét thư mục envs
+  for g in "$HOME"/miniconda3 "$HOME"/anaconda3 "$HOME"/miniforge3 \
+           "$HOME"/mambaforge "/opt/conda"; do
+    [[ -d "$g/envs" ]] && find "$g/envs" -maxdepth 1 -mindepth 1 -type d 2>/dev/null
+  done
+  # Luôn trả 0. Thư mục cuối không tồn tại thì vòng lặp trả mã lỗi, mà script bật
+  # `pipefail` nên cả ống dẫn thành lỗi -> nhánh "||" phía sau bắn nhầm, in ra
+  # "không dò được env nào" ngay bên dưới danh sách env vừa liệt kê.
+  return 0
+}
+
+tim_python() {
+  # 1. Người dùng chỉ định thẳng đường dẫn python
+  [[ -n "${PY:-}" ]] && { echo "$PY"; return; }
+
+  local envs; envs="$(liet_ke_env | sort -u)"
+
+  # 2. Chỉ định tên env -> tìm env có tên khớp
+  if [[ -n "${ENV:-}" ]]; then
+    while read -r d; do
+      [[ "$(basename "$d")" == "$ENV" && -x "$d/bin/python" ]] && {
+        echo "$d/bin/python"; return; }
+    done <<< "$envs"
     echo ""; return
   fi
-  # Từ đây trở xuống phải THỰC SỰ có gradio + torch mới nhận. Không kiểm thì dễ
-  # vớ phải env base: đã đo, base conda được chọn trước cả env 'test' vì
-  # CONDA_PREFIX trỏ vào base, rồi web chết lúc nạp model chứ không báo ở đây.
-  du_goi() { [[ -x "$1" ]] && "$1" -c "import gradio, torch" 2>/dev/null; }
+
+  # Từ đây trở xuống phải THỰC SỰ import được gradio + torch mới nhận. Không kiểm
+  # thì vớ ngay env base: đã đo, base được chọn trước cả env đúng vì CONDA_PREFIX
+  # trỏ vào đấy, rồi web chết lúc nạp model chứ không báo ở bước kiểm tra này.
+
   # 3. Đang ở trong env sẵn rồi
   du_goi "${CONDA_PREFIX:-}/bin/python" && { echo "$CONDA_PREFIX/bin/python"; return; }
-  # 4. Dò các tên hay dùng
-  for goc in "$HOME/miniconda3" "$HOME/anaconda3" "$HOME/miniforge3" "/opt/conda"; do
-    for ten in ChatBot chatbot test viu; do
-      p="$goc/envs/$ten/bin/python"
-      du_goi "$p" && { echo "$p"; return; }
-    done
+
+  # 4. Ưu tiên các tên hay dùng
+  for ten in ChatBot chatbot test viu; do
+    while read -r d; do
+      [[ "$(basename "$d")" == "$ten" ]] && du_goi "$d/bin/python" && {
+        echo "$d/bin/python"; return; }
+    done <<< "$envs"
   done
-  # 5. Bí quá thì quét hết mọi env đang có
-  for goc in "$HOME/miniconda3" "$HOME/anaconda3" "$HOME/miniforge3" "/opt/conda"; do
-    for p in "$goc"/envs/*/bin/python; do
-      du_goi "$p" && { echo "$p"; return; }
-    done
-  done
+
+  # 5. Bí quá thì quét hết
+  while read -r d; do
+    du_goi "$d/bin/python" && { echo "$d/bin/python"; return; }
+  done <<< "$envs"
+
   echo ""
 }
 
@@ -69,11 +103,25 @@ fi
 echo "== Kiểm tra trước khi chạy =="
 
 [[ -n "$PY" && -x "$PY" ]] || {
-  echo "❌ Không tìm thấy môi trường conda nào có đủ gradio + torch."
-  echo "   Đang có các env:"
-  conda env list 2>/dev/null | sed 's/^/     /' || echo "     (không chạy được lệnh conda)"
-  echo "   Chỉ định thẳng:  ENV=ChatBot bash scripts/chay-web.sh"
-  echo "   Hoặc cài gói:    conda activate <env> && pip install -r requirements.txt"
+  if [[ -n "${ENV:-}" ]]; then
+    echo "❌ Không tìm thấy env tên '$ENV'."
+  else
+    echo "❌ Không env nào có đủ gradio + torch."
+  fi
+  echo "   Các env tìm thấy trên máy này:"
+  liet_ke_env | sort -u | sed 's|^|     |' || echo "     (không dò được env nào)"
+  echo
+  echo "   Cách xử lý:"
+  echo "     ENV=<tên> bash scripts/chay-web.sh       # chỉ định tên env"
+  echo "     PY=/đường/dẫn/bin/python bash scripts/chay-web.sh   # chỉ định thẳng"
+  exit 1; }
+
+# Env chỉ định bằng ENV chưa chắc đã cài gói — kiểm và nói rõ thiếu gì, thay vì
+# để web chết lúc nạp model.
+du_goi "$PY" || {
+  echo "❌ Env này thiếu gói: $PY"
+  "$PY" -c "import gradio" 2>&1 | tail -1 | sed 's|^|     |'
+  echo "   Cài bằng: $PY -m pip install -r requirements.txt"
   exit 1; }
 echo "  ✓ Python: $PY"
 
