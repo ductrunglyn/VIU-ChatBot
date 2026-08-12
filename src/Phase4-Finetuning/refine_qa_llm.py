@@ -65,7 +65,18 @@ SYSTEM = (
     "sau đó mới tới chi tiết. Không mở đầu bằng khuôn 'Theo kế hoạch đào tạo...' "
     "nếu đáp án gốc đã mở như vậy — hãy đổi cách vào đề.\n"
     "6. Nếu phải liệt kê nhiều học phần, hãy nhóm lại cho dễ đọc thay vì đổ một "
-    "chuỗi dấu chấm phẩy dài.\n\n"
+    "chuỗi dấu chấm phẩy dài.\n"
+    "7. Câu trả lời phải nêu rõ HỌC KỲ và TÊN NGÀNH đang nói tới. Đừng rút gọn "
+    "thành 'Em học 6 học phần' vì người đọc mất ngữ cảnh.\n"
+    "8. Viết mọi con số bằng CHỮ SỐ (1, 2, 3), không viết bằng chữ (một, hai, "
+    "nhất).\n"
+    "9. Tín chỉ của mỗi học phần LUÔN viết trong ngoặc ngay sau tên môn, đúng "
+    "dạng: Vật lý đại cương (2 tín chỉ). Không viết 'Vật lý đại cương với 2 tín "
+    "chỉ'.\n"
+    "10. Liệt kê ĐÚNG những học phần có trong đáp án gốc — không thêm môn nào từ "
+    "khối dữ kiện, kể cả khi môn đó cùng học kỳ. Khối dữ kiện chỉ dùng để bổ sung "
+    "thông tin nền (tổng tín chỉ học kỳ, tên định hướng), không dùng để nối dài "
+    "danh sách môn.\n\n"
     "Trả về ĐÚNG một khối JSON, không kèm lời dẫn:\n"
     '{"question": "...", "answer": "..."}'
 )
@@ -82,19 +93,82 @@ USER = (
 
 # ------------------------------------------------------- cổng kiểm tra dữ kiện
 _NUM_RE = re.compile(r"\d+(?:[.,]\d+)*")
+# Tín chỉ CỦA TỪNG HỌC PHẦN, nhận ra nhờ cặp ngoặc: "Vật lý đại cương (2 tín chỉ)".
+# Đây là dữ kiện đếm được — mất một cái là rơi một môn, thừa một cái là chèn môn
+# không được hỏi. Phải so theo SỐ LẦN XUẤT HIỆN.
+#
+# Cố ý KHÔNG bắt tín chỉ viết ngoài ngoặc ("cộng lại 15 tín chỉ", "tổng 20 tín
+# chỉ"): đó là số tổng, và mô hình được phép thêm tổng đã có trong khối dữ kiện.
+# Bản trước gộp cả hai nên vừa loại oan câu thêm đúng tổng học kỳ, vừa phải nới
+# lỏng tới mức bỏ lọt câu bị bơm thêm 8 học phần không ai hỏi.
+_ITEM_CREDIT_RE = re.compile(r"\(\s*(\d+(?:[.,]\d+)*)\s*tín\s*chỉ", re.IGNORECASE)
+# "năm thứ 1" và "năm thứ nhất" là một. Không quy đổi thì bản viết lại tự nhiên
+# hơn lại bị loại oan — đã đo: đây là lý do loại của 2/3 ca trong lần chạy thử.
+_ORDINALS = {"nhất": "1", "hai": "2", "ba": "3", "tư": "4", "bốn": "4",
+             "năm": "5", "sáu": "6", "bảy": "7", "tám": "8"}
+_ORDINAL_RE = re.compile(r"\bthứ\s+(" + "|".join(_ORDINALS) + r")\b", re.IGNORECASE)
+
+
+def _norm(text: str) -> str:
+    return _ORDINAL_RE.sub(lambda m: "thứ " + _ORDINALS[m.group(1).lower()], text or "")
 
 
 def _facts(text: str) -> list[str]:
     """Mọi chuỗi số trong văn bản, giữ cả số lần lặp."""
-    return sorted(_NUM_RE.findall(text or ""))
+    return sorted(_NUM_RE.findall(_norm(text)))
+
+
+def _credits(text: str) -> list[str]:
+    return sorted(_ITEM_CREDIT_RE.findall(_norm(text)))
+
+
+_SEM_MENTION_RE = re.compile(r"(?:học\s*)?kỳ\s*(\d{1,2})", re.IGNORECASE)
+_REFUSAL_RE = re.compile(
+    r"không có|chưa có|không tìm thấy|không nêu|không quy định|không đề cập|"
+    r"ngoài phạm vi|không thuộc phạm vi", re.IGNORECASE)
+
+
+def _missing_anchors(orig_a: str, new_a: str) -> list[str]:
+    """Ngữ cảnh bắt buộc giữ lại: học kỳ nào, ngành nào.
+
+    Cổng số học không bắt được kiểu hỏng này. Đo thực tế: đáp án "Kỳ 2 ngành KT
+    Nhiệt bố trí 6 học phần, cộng lại 18 tín chỉ: ..." bị viết lại thành "Em học
+    6 học phần, tổng 18 tín chỉ: ..." — mọi con số còn nguyên nên cổng cho qua,
+    nhưng người đọc không còn biết đang nói về học kỳ nào của ngành nào.
+    """
+    fold_new = curriculum_index._fold(new_a)
+    missing = []
+
+    sems = {m.group(1) for m in _SEM_MENTION_RE.finditer(_norm(orig_a))}
+    for s in sorted(sems):
+        if not re.search(rf"\bky\s*{s}\b", fold_new):
+            missing.append(f"học kỳ {s}")
+
+    try:
+        _, programs = curriculum_index.load()
+    except Exception:
+        programs = []
+    for p in programs:
+        lbl = curriculum_index.program_label(p)
+        if curriculum_index._fold(lbl) in curriculum_index._fold(orig_a):
+            if curriculum_index._fold(lbl) not in fold_new:
+                missing.append(lbl)
+    return missing
 
 
 def verify(orig_q: str, orig_a: str, new_q: str, new_a: str,
            extra: str = "") -> tuple[bool, str]:
     """Bản viết lại có giữ đúng dữ kiện không.
 
-    Kiểm tra hai chiều vì hỏng theo cả hai hướng đều nguy hiểm: thừa số là mô
-    hình bịa, thiếu số là nó bỏ mất học phần hay điều kiện.
+    Hai mức chặt khác nhau, vì hai loại số hỏng theo hai kiểu:
+
+    - SỐ TÍN CHỈ so theo số lần xuất hiện. Đáp án liệt kê sáu môn "(3 tín chỉ)"
+      mà bản mới chỉ còn năm là rơi mất một học phần, dù chữ số 3 vẫn còn.
+    - CÁC SỐ CÒN LẠI chỉ so có/không. Đáp án gốc viết "Học kỳ 1 (học kỳ 1 năm thứ
+      1)" lặp ba lần chữ số 1; bản viết lại bỏ phần trong ngoặc cho gọn là ĐÚNG,
+      không phải mất dữ kiện. So theo số lần ở đây chỉ loại oan bản tốt.
+
+    Chiều ngược lại — số lạ xuất hiện — luôn chặn, vì đó là mô hình bịa.
     """
     if not new_q or not new_q.strip() or not new_a or not new_a.strip():
         return False, "bản viết lại rỗng"
@@ -104,15 +178,38 @@ def verify(orig_q: str, orig_a: str, new_q: str, new_a: str,
     thua = sorted({x for x in b if x not in allowed})
     if thua:
         return False, f"đáp án có số không có trong dữ liệu: {thua}"
-    thieu = [x for x in a if a.count(x) > b.count(x)]
-    if thieu:
-        return False, f"đáp án làm mất số: {sorted(set(thieu))}"
 
-    # Câu hỏi không được đổi trọng tâm: mọi số trong câu hỏi mới phải có sẵn ở
-    # câu hỏi cũ (hỏi "học kỳ 6" mà viết lại thành "học kỳ 8" là hỏng dữ liệu).
-    qa, qb = _facts(orig_q), _facts(new_q)
-    if sorted(set(qb)) != sorted(set(qa)):
-        return False, f"câu hỏi đổi số: gốc {sorted(set(qa))} -> mới {sorted(set(qb))}"
+    thieu = sorted(set(a) - set(b))
+    if thieu:
+        return False, f"đáp án làm mất số: {thieu}"
+
+    ca, cb = _credits(orig_a), _credits(new_a)
+    if ca != cb:
+        kieu = "chèn thêm học phần không được hỏi" if len(cb) > len(ca) else "rơi học phần"
+        return False, f"tín chỉ từng học phần không khớp ({kieu}): gốc {ca} -> mới {cb}"
+
+    mat = _missing_anchors(orig_a, new_a)
+    if mat:
+        return False, f"đáp án bỏ mất ngữ cảnh: {mat}"
+
+    # Mẫu TỪ CHỐI là chỗ bịa đặt nguy hiểm nhất: nếu mô hình biến "kho dữ liệu
+    # không có ngành đó" thành một câu trả lời nghe hợp lý, mọi cổng phía trên
+    # đều không thấy gì — đáp án mới có thể chẳng chứa con số nào. Bắt buộc giữ
+    # lại lời phủ định.
+    if _REFUSAL_RE.search(orig_a) and not _REFUSAL_RE.search(new_a):
+        return False, "mẫu từ chối bị viết thành câu trả lời khẳng định"
+
+    # Câu hỏi được phép BỎ BỚT chữ thừa nhưng không được thêm số mới: "học kỳ 2
+    # năm thứ 1" rút thành "học kỳ 2" vẫn hỏi đúng chỗ đó, còn "học kỳ 6" thành
+    # "học kỳ 8" là hỏng dữ liệu. Riêng số học kỳ thì phải giữ, mất nó là câu hỏi
+    # hết xác định và không còn khớp với đáp án.
+    qa, qb = set(_facts(orig_q)), set(_facts(new_q))
+    if qb - qa:
+        return False, f"câu hỏi thêm số lạ: {sorted(qb - qa)}"
+    sem_q = {m.group(1) for m in _SEM_MENTION_RE.finditer(_norm(orig_q))}
+    mat_q = sem_q - {m.group(1) for m in _SEM_MENTION_RE.finditer(_norm(new_q))}
+    if mat_q:
+        return False, f"câu hỏi bỏ mất học kỳ: {sorted(mat_q)}"
     return True, ""
 
 
@@ -171,7 +268,7 @@ def _parse(text: str) -> tuple[str, str]:
     return str(d.get("question", "")).strip(), str(d.get("answer", "")).strip()
 
 
-def run_batch(tok, model, prompts: list[str], max_new: int) -> list[str]:
+def _generate(tok, model, prompts: list[str], max_new: int) -> list[str]:
     import torch
 
     texts = [tok.apply_chat_template(
@@ -189,7 +286,57 @@ def run_batch(tok, model, prompts: list[str], max_new: int) -> list[str]:
             for o in out]
 
 
+def run_batch(tok, model, prompts: list[str], max_new: int) -> list[str]:
+    """Sinh cả lô, tự chia đôi lô nếu hết bộ nhớ GPU.
+
+    Máy này dùng chung card với tiến trình của người khác: lúc bắt đầu chạy còn
+    11,6GB nhưng phần trống đó co giãn ngoài tầm kiểm soát. Một lần tràn bộ nhớ
+    mà không bắt lại sẽ giết cả mẻ 1000 câu sau nhiều giờ chạy, nên chia nhỏ rồi
+    thử lại; xuống tới lô 1 câu mà vẫn tràn thì mới bỏ qua câu đó.
+    """
+    import torch
+
+    try:
+        return _generate(tok, model, prompts, max_new)
+    except torch.OutOfMemoryError:
+        torch.cuda.empty_cache()
+        if len(prompts) == 1:
+            print("   ⚠️  hết bộ nhớ GPU ngay cả với 1 câu -> bỏ qua câu này")
+            return [""]
+        mid = len(prompts) // 2
+        print(f"   ⚠️  hết bộ nhớ GPU, chia lô {len(prompts)} -> {mid}+{len(prompts) - mid}")
+        return (run_batch(tok, model, prompts[:mid], max_new)
+                + run_batch(tok, model, prompts[mid:], max_new))
+
+
 # ---------------------------------------------------------------------- chạy
+def out_path(args, src: pathlib.Path) -> pathlib.Path:
+    return pathlib.Path(args.out) if args.out else src.with_name(src.stem + "_tinh.csv")
+
+
+def _prompt(r: dict, qb: tuple, ab: tuple, extra: str, loi: str = "") -> str:
+    """Lời nhắc cho một câu. `loi` khác rỗng nghĩa là đang làm lại lượt 2."""
+    sua = (f"\nBẢN VIẾT LẠI TRƯỚC ĐÓ BỊ LOẠI VÌ: {loi}.\n"
+           f"Hãy làm lại và tránh đúng lỗi đó. Cách chắc nhất là GIỮ NGUYÊN danh "
+           f"sách học phần của đáp án gốc — cả tên môn lẫn số tín chỉ trong ngoặc, "
+           f"không thêm không bớt môn nào — và chỉ đổi cách viết những câu dẫn "
+           f"xung quanh.\n") if loi else ""
+    return USER.format(
+        question=r["question"], answer=r["answer"],
+        q_len=len(r["question"].split()), a_len=len(r["answer"].split()),
+        facts=("\nDỮ KIỆN TRA CỨU (chỉ được lấy thêm thông tin từ đây):\n"
+               + extra + "\n") if extra else "",
+        q_lo=qb[0], q_hi=qb[1], a_lo=ab[0], a_hi=ab[1]) + sua
+
+
+def _write(rows: list[dict], out: pathlib.Path) -> None:
+    with out.open("w", encoding="utf-8", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=COLUMNS, quoting=csv.QUOTE_ALL,
+                           extrasaction="ignore")
+        w.writeheader()
+        w.writerows(rows)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--in", dest="src", default="data/qa/qa_nang_cao.csv")
@@ -198,6 +345,7 @@ def main():
     ap.add_argument("--batch", type=int, default=4)
     ap.add_argument("--max-new", type=int, default=900)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--show-rejects", action="store_true", help="in đầy đủ bản bị loại")
     args = ap.parse_args()
 
     src = pathlib.Path(args.src)
@@ -212,27 +360,58 @@ def main():
     tok, model = load_model()
     print("Đã nạp mô hình. Bắt đầu.\n")
 
-    ok, rejected, samples = 0, [], []
+    # Xử lý theo THỨ TỰ ĐỘ DÀI chứ không theo thứ tự tệp. Sinh theo lô phải đệm
+    # mọi câu cho bằng câu dài nhất trong lô, nên ghép một câu 40 từ với một câu
+    # 260 từ là phí gần hết phần đệm. Gom câu dài gần nhau vào cùng lô rút ngắn
+    # đáng kể tổng thời gian; kết quả vẫn ghi về đúng vị trí cũ nên tệp ra không
+    # đổi thứ tự.
+    order = sorted(range(len(rows)),
+                   key=lambda i: len(rows[i]["question"]) + len(rows[i]["answer"]))
+
+    ok, ok_retry, rejected, samples = 0, 0, [], []
     t0 = time.time()
-    for start in range(0, len(rows), args.batch):
-        chunk = rows[start:start + args.batch]
-        chunk_bands = bands[start:start + args.batch]
+    for start in range(0, len(order), args.batch):
+        idxs = order[start:start + args.batch]
+        chunk = [rows[i] for i in idxs]
+        chunk_bands = [bands[i] for i in idxs]
         prompts, extras = [], []
         for r, (qb, ab) in zip(chunk, chunk_bands):
             extra = curriculum_index.facts_for(r["question"]) or ""
             extras.append(extra)
-            prompts.append(USER.format(
-                question=r["question"], answer=r["answer"],
-                q_len=len(r["question"].split()), a_len=len(r["answer"].split()),
-                facts=("\nDỮ KIỆN TRA CỨU (chỉ được lấy thêm thông tin từ đây):\n"
-                       + extra + "\n") if extra else "",
-                q_lo=qb[0], q_hi=qb[1], a_lo=ab[0], a_hi=ab[1]))
+            prompts.append(_prompt(r, qb, ab, extra))
 
-        for r, raw, extra in zip(chunk, run_batch(tok, model, prompts, args.max_new), extras):
+        outs = run_batch(tok, model, prompts, args.max_new)
+
+        # Lượt 2 cho những câu vừa trượt, kèm ĐÚNG lý do bị loại. Phần lớn ca
+        # trượt là đáp án liệt kê dài — mô hình cắt bớt hoặc bơm thêm học phần —
+        # và chỉ cần chỉ tên lỗi là nó sửa được. Câu trượt lượt 2 thì giữ nguyên
+        # bản gốc, nên lượt này chỉ có thể làm dữ liệu tốt lên.
+        retry_idx, retry_prompts = [], []
+        results = []
+        for i, (r, raw, extra) in enumerate(zip(chunk, outs, extras)):
             nq, na = _parse(raw)
             good, why = verify(r["question"], r["answer"], nq, na, extra)
+            results.append((nq, na, good, why))
+            if not good:
+                qb, ab = chunk_bands[i]
+                retry_idx.append(i)
+                retry_prompts.append(_prompt(r, qb, ab, extra, loi=why))
+
+        if retry_prompts:
+            for i, raw in zip(retry_idx, run_batch(tok, model, retry_prompts, args.max_new)):
+                r, extra = chunk[i], extras[i]
+                nq, na = _parse(raw)
+                good, why = verify(r["question"], r["answer"], nq, na, extra)
+                if good:
+                    ok_retry += 1
+                results[i] = (nq, na, good, why)
+
+        for r, (nq, na, good, why) in zip(chunk, results):
             if not good:
                 rejected.append((r["id"], r["question"][:55], why))
+                if args.show_rejects:
+                    print(f"\n  ✗ [{r['id']}] {why}\n    GỐC: {r['answer'][:400]}"
+                          f"\n    MỚI: {na[:400]}\n")
                 continue                       # giữ nguyên cặp gốc
             if len(samples) < 3:
                 samples.append((r["question"], r["answer"], nq, na))
@@ -242,9 +421,15 @@ def main():
         done = min(start + args.batch, len(rows))
         rate = done / max(time.time() - t0, 1e-9)
         print(f"  {done}/{len(rows)}  nhận {ok}  loại {len(rejected)}  "
-              f"({rate:.2f} câu/s, còn ~{(len(rows) - done) / max(rate, 1e-9) / 60:.0f} phút)")
+              f"({rate:.2f} câu/s, còn ~{(len(rows) - done) / max(rate, 1e-9) / 60:.0f} phút)",
+              flush=True)
+        # Ghi lại sau mỗi 20 lô: cả mẻ chạy ~3 tiếng trên card dùng chung với
+        # người khác, mất giữa chừng mà không có bản dở là mất trắng công sức.
+        if not args.dry_run and (start // max(args.batch, 1)) % 20 == 19:
+            _write(rows, out_path(args, src))
 
-    print(f"\n✅ Nhận {ok}/{len(rows)}   ❌ Loại {len(rejected)} (giữ nguyên bản gốc)")
+    print(f"\n✅ Nhận {ok}/{len(rows)} (trong đó {ok_retry} câu phải làm lại lượt 2)"
+          f"   ❌ Loại {len(rejected)} (giữ nguyên bản gốc)")
     for rid, q, why in rejected[:10]:
         print(f"   [{rid}] {q} -> {why}")
     for q0, a0, q1, a1 in samples:
@@ -256,12 +441,8 @@ def main():
         print("\n[thử] không ghi tệp.")
         return
 
-    out = pathlib.Path(args.out) if args.out else src.with_name(src.stem + "_tinh.csv")
-    with out.open("w", encoding="utf-8", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=COLUMNS, quoting=csv.QUOTE_ALL,
-                           extrasaction="ignore")
-        w.writeheader()
-        w.writerows(rows)
+    out = out_path(args, src)
+    _write(rows, out)
     print(f"\n✅ Đã ghi -> {out}")
 
 
