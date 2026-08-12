@@ -128,7 +128,7 @@ def main():
         _tok = AutoTokenizer.from_pretrained(config.FINETUNE_BASE)
 
     # Chống trùng theo NỘI DUNG câu hỏi (id chỉ là số thứ tự cục bộ trong mỗi file).
-    seen_q, kept, skipped, no_ctx, too_long = set(), [], 0, 0, 0
+    seen_q, kept, skipped, no_ctx, too_long, bot_ctx = set(), [], 0, 0, 0, 0
     for i, r in enumerate(rows):
         if not r["question"] or not r["answer"]:
             skipped += 1
@@ -150,27 +150,46 @@ def main():
                 # mô hình bịa ra nội dung không có trong tài liệu. Bỏ mẫu này.
                 no_ctx += 1
                 continue
-            context, _ = rag._build_context(hits)
+        else:
+            hits = []
+
+        def _dung(hs):
+            if not with_rag:
+                return r["question"]
+            # Truyền CẢ CÂU HỎI, y như rag.py lúc chạy thật. Bản trước gọi thiếu
+            # đối số này nên mẫu huấn luyện không có khối "DỮ KIỆN TRA CỨU TỪ KẾ
+            # HOẠCH ĐÀO TẠO", trong khi lúc chạy thật khối đó luôn được ghép vào.
+            # Mô hình vì thế chưa từng học cách đọc khối dữ kiện đã tra sẵn — đúng
+            # thứ dùng để trả lời chính xác số tín chỉ và danh sách học phần.
+            context, _ = rag._build_context(hs, r["question"])
             # Mẫu TỪ CHỐI cố ý giữ lại đúng trường hợp khó: tài liệu truy xuất ra
             # đúng chủ đề nhưng KHÔNG chứa con số/danh sách được hỏi. Bỏ chúng đi
             # thì mô hình không bao giờ học được cách nói "tài liệu không có".
-            user_msg = f"TÀI LIỆU:\n{context}\n\nCÂU HỎI: {r['question']}"
-        else:
-            user_msg = r["question"]
+            return f"TÀI LIỆU:\n{context}\n\nCÂU HỎI: {r['question']}"
 
-        sample = {
-            "messages": [
+        def _mau(hs):
+            return {"messages": [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_msg},
+                {"role": "user", "content": _dung(hs)},
                 {"role": "assistant", "content": answer},
-            ]
-        }
-        # Bộ huấn luyện cắt cụt từ CUỐI khi mẫu dài quá max_length, tức là cắt mất
-        # chính phần đáp án cần học. Nên loại luôn ở đây thay vì để bị cắt.
+            ]}
+
+        # Mẫu dài quá max_length sẽ bị cắt từ CUỐI, tức cắt mất chính đáp án cần
+        # học. Bản trước loại thẳng mẫu đó — nhưng như vậy là mất hẳn một câu hỏi
+        # khỏi tập huấn luyện. Nay bỏ bớt ĐOẠN TÀI LIỆU kém liên quan nhất (đã xếp
+        # hạng nên đoạn cuối là đoạn yếu nhất) cho tới khi vừa, giữ nguyên đáp án.
+        # Chỉ loại khi còn đúng một đoạn mà vẫn dài quá.
+        sample = _mau(hits)
         if _tok is not None:
-            n_tok = len(_tok(_tok.apply_chat_template(sample["messages"],
-                                                      tokenize=False))["input_ids"])
-            if n_tok > args.max_tokens:
+            def _dem(s):
+                return len(_tok(_tok.apply_chat_template(s["messages"],
+                                                         tokenize=False))["input_ids"])
+            dung = list(hits)
+            while _dem(sample) > args.max_tokens and len(dung) > 1:
+                dung = dung[:-1]
+                sample = _mau(dung)
+                bot_ctx += 1
+            if _dem(sample) > args.max_tokens:
                 too_long += 1
                 continue
 
@@ -188,6 +207,8 @@ def main():
     print(f"   Bỏ qua: {skipped} dòng rỗng/trùng"
           + (f", {no_ctx} câu không tìm được căn cứ trong kho tri thức" if with_rag else "")
           + (f", {too_long} mẫu dài quá {args.max_tokens} token" if too_long else ""))
+    if bot_ctx:
+        print(f"   ℹ️  {bot_ctx} lần bớt bớt đoạn tài liệu để mẫu vừa ngưỡng mà KHÔNG cắt đáp án")
     if len(kept) < 500:
         print(f"   ℹ️  Khuyến nghị đạt 500–1000 cặp trước khi fine-tuning (hiện {len(kept)}).")
 

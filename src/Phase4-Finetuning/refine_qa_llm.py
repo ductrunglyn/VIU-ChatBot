@@ -139,6 +139,33 @@ _REFUSAL_RE = re.compile(
 _FIRST_SENT_RE = re.compile(r"^[^.!?]{0,400}(?:[.!?]|$)")
 
 
+# Hư từ tiếng Việt: xuất hiện ở mọi câu nên không nói lên nội dung gì, đối chiếu
+# chúng chỉ làm loãng phép đo.
+_HU_TU = {
+    "cua", "va", "cac", "nhung", "duoc", "cho", "voi", "trong", "theo", "tai", "tu",
+    "den", "khi", "neu", "thi", "la", "co", "khong", "nay", "do", "mot", "hai",
+    "sinh vien", "sinh", "vien", "em", "hoc", "nha truong", "truong", "quy dinh",
+    "phai", "se", "da", "dang", "cung", "ve", "ra", "vao", "len", "xuong", "nhu",
+    "hoac", "ma", "boi", "vi", "nen", "hon", "rat", "chi", "moi", "sau", "truoc",
+}
+
+
+def _missing_content(orig_a: str, new_a: str) -> list[str]:
+    """Từ nội dung có trong bản gốc mà bản viết lại đánh rơi.
+
+    Chỉ xét từ ghép hai âm tiết trở lên và bỏ hư từ: diễn đạt lại thì từ đơn thay
+    đổi liên tục ("phải" -> "cần"), nhưng thuật ngữ học vụ như "cảnh báo học tập",
+    "thời gian đào tạo", "buộc thôi học" thì không có cách nói khác — mất chúng
+    nghĩa là mất ý, không phải đổi lời.
+    """
+    fold_new = curriculum_index._fold(new_a)
+    words = curriculum_index._fold(orig_a).split()
+    ghep = {" ".join(words[i:i + 2]) for i in range(len(words) - 1)}
+    ghep = {g for g in ghep
+            if len(g) >= 8 and not any(w in _HU_TU for w in g.split())}
+    return sorted(g for g in ghep if g not in fold_new)
+
+
 def _is_refusal(text: str) -> bool:
     """Đáp án có mở đầu bằng lời từ chối không."""
     m = _FIRST_SENT_RE.match(" ".join((text or "").split()))
@@ -216,6 +243,17 @@ def verify(orig_q: str, orig_a: str, new_q: str, new_a: str,
     if _is_refusal(orig_a) and not _is_refusal(new_a):
         return False, "mẫu từ chối bị viết thành câu trả lời khẳng định"
 
+    # Nội dung KHÔNG PHẢI SỐ cũng có thể rơi mất mà mọi tầng trên đều không thấy:
+    # "sinh viên bị buộc thôi học nếu vượt quá thời gian đào tạo tối đa" chẳng có
+    # con số nào. Đo bằng tỉ lệ giữ lại các từ nội dung dài (bỏ hư từ), và chặn
+    # cả việc rút ngắn — đáp án viết lại là để dễ đọc, không phải để tóm tắt.
+    if len(new_a.split()) < 0.9 * len(orig_a.split()):
+        return False, (f"đáp án ngắn hơn bản gốc quá nhiều "
+                       f"({len(orig_a.split())} -> {len(new_a.split())} từ)")
+    thieu_y = _missing_content(orig_a, new_a)
+    if thieu_y:
+        return False, f"đáp án bỏ mất ý: {thieu_y[:6]}"
+
     # Câu hỏi được phép BỎ BỚT chữ thừa nhưng không được thêm số mới: "học kỳ 2
     # năm thứ 1" rút thành "học kỳ 2" vẫn hỏi đúng chỗ đó, còn "học kỳ 6" thành
     # "học kỳ 8" là hỏng dữ liệu. Riêng số học kỳ thì phải giữ, mất nó là câu hỏi
@@ -241,14 +279,17 @@ def assign_bands(rows: list[dict]) -> list[tuple]:
     out = []
     for i, r in enumerate(rows):
         a_len = len(r["answer"].split())
-        # Sàn tính theo MẬT ĐỘ DỮ KIỆN chứ không theo tỉ lệ co: đáp án liệt kê 11
-        # học phần có 11 con số phải giữ, mỗi mục cần chừng 6 từ để nêu tên và số
-        # tín chỉ. Lấy tỉ lệ (kiểu "được co còn 55%") thì một đáp án 155 từ vẫn bị
-        # xếp vào dải 55-90, mô hình buộc phải bỏ bớt học phần và cổng loại sạch.
+        # KHÔNG cho nén ngắn lại. Đáp án được viết lại cho dễ đọc, không phải để
+        # tóm tắt: mọi ý trong bản gốc đều là điều khoản quy chế hoặc học phần mà
+        # sinh viên cần biết. Đã có bài học — bản trước dùng cách cắt đuôi cho gọn
+        # và mất 69.513 từ trên 782 đáp án, trong đó một câu về Điều 11 Luật Giáo
+        # dục đại học bị cắt từ 479 xuống 72 từ, mất luôn phần liệt kê chính.
+        # Sàn vì vậy đặt ở NGUYÊN độ dài gốc; dải đích chỉ được phép bằng hoặc dài
+        # hơn, phần dài thêm lấy từ khối dữ kiện đã tra cứu.
         n_facts = len(set(_NUM_RE.findall(r["answer"])))
-        floor = max(40, 25 + 6 * n_facts, int(a_len * 0.7))
+        floor = max(40, 25 + 6 * n_facts, a_len)
         feasible = [b for b in A_BANDS if b[1] >= floor]
-        a_band = feasible[i % len(feasible)] if feasible else A_BANDS[-1]
+        a_band = feasible[i % len(feasible)] if feasible else (floor, int(floor * 1.25))
         q_band = Q_BANDS[i % len(Q_BANDS)]
         out.append((q_band, a_band))
     return out
