@@ -84,6 +84,10 @@ tim_python() {
 PY="$(tim_python)"
 
 case "${1:-}" in
+  --python)
+    # Chỉ in đường dẫn Python dò được rồi thoát. Để script khác (tinh-chinh.sh)
+    # dùng lại đúng bộ dò này thay vì chép logic sang chỗ thứ hai.
+    [[ -n "$PY" ]] && { echo "$PY"; exit 0; } || exit 1 ;;
   --dung)
     screen -S "$PHIEN" -X quit 2>/dev/null
     pkill -f "src/Phase5-UI/app.py" 2>/dev/null

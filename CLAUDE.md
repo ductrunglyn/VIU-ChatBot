@@ -17,6 +17,23 @@ Làm tay thì: `conda activate <env> && python src/Phase5-UI/app.py`
 
 Kiểm GPU bằng `nvidia-smi`. **Người dùng không có quyền sudo.**
 
+## Tinh chỉnh dữ liệu Q/A
+
+```bash
+bash scripts/tinh-chinh.sh            # chạy, tự tiếp mẻ dở
+bash scripts/tinh-chinh.sh --xem      # tiến độ
+bash scripts/tinh-chinh.sh --dung     # dừng, GIỮ phần đã làm
+```
+
+Mẻ đầy đủ mất ~6 tiếng bằng Qwen3-14B trên card dùng chung, nên **dừng giữa
+chừng rồi chạy tiếp được**: mỗi 20 lô ghi một lần ra `<tệp>_tinh.csv` kèm mốc
+`<tệp>_tinh.csv.tien_do.json`, `--tiep` đọc mốc đó mà bỏ qua câu đã xử lý.
+
+Mốc phải là **tệp riêng**, không so tệp ra với tệp gốc được: câu bị cổng kiểm
+chứng loại thì giữ nguyên bản gốc nên "giống bản gốc" không phân biệt được "đã
+chạy nhưng bị loại" với "chưa chạy". Mẻ nào chạy từ trước khi có tính năng này
+thì `khoi_phuc_tien_do.py` dựng lại mốc từ thứ tự duyệt (tất định, theo độ dài).
+
 ## Kiến trúc
 
 Câu hỏi → BGE-M3 (dense) + BM25 → gộp → BGE-reranker-v2-m3 xếp hạng lại → lọc

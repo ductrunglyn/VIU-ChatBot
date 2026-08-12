@@ -31,6 +31,7 @@ import argparse
 import csv
 import json
 import re
+import signal
 import sys
 import time
 import pathlib
@@ -430,6 +431,33 @@ def _write(rows: list[dict], out: pathlib.Path) -> None:
         w.writerows(rows)
 
 
+# ------------------------------------------------------- dừng giữa chừng & chạy tiếp
+# Cả mẻ 1834 câu mất ~6 tiếng trên card DÙNG CHUNG. Phải dừng được để nhường GPU
+# (chạy web, huấn luyện) rồi bật lại chạy tiếp, chứ không thì mỗi lần nhường là
+# mất trắng vài tiếng.
+#
+# Vì sao cần TỆP TIẾN ĐỘ RIÊNG chứ không so tệp ra với tệp gốc: câu bị cổng kiểm
+# chứng loại được GIỮ NGUYÊN bản gốc, nên "giống hệt bản gốc" không phân biệt
+# được "đã xử lý nhưng bị loại" với "chưa xử lý". So sánh sẽ làm lại vô ích hàng
+# trăm câu vốn đã chạy hai lượt.
+def tien_do_path(out: pathlib.Path) -> pathlib.Path:
+    return out.with_name(out.name + ".tien_do.json")
+
+
+_DUNG = False
+
+
+def _xin_dung(sig, frame):
+    """Ctrl-C hoặc `kill <pid>` -> ghi tiến độ rồi thoát, thay vì chết mất bài."""
+    global _DUNG
+    if _DUNG:                      # bấm lần hai thì thoát ngay
+        print("\n⏹  Dừng ngay lập tức (mất lô đang chạy).", flush=True)
+        sys.exit(130)
+    _DUNG = True
+    print("\n⏸  Đã nhận lệnh dừng. Chạy nốt lô hiện tại (~30 giây) rồi ghi lại "
+          "tiến độ.\n   Bật lại bằng cùng lệnh cũ kèm --tiep.", flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--in", dest="src", default="data/qa/qa_nang_cao.csv")
@@ -439,6 +467,8 @@ def main():
     ap.add_argument("--max-new", type=int, default=900)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--show-rejects", action="store_true", help="in đầy đủ bản bị loại")
+    ap.add_argument("--tiep", action="store_true",
+                    help="chạy tiếp mẻ đang dở, bỏ qua những câu đã xử lý")
     args = ap.parse_args()
 
     src = pathlib.Path(args.src)
@@ -448,18 +478,49 @@ def main():
     if args.limit:
         rows = rows[:args.limit]
     bands = assign_bands(rows)
-    print(f"{src.name}: tinh chỉnh {len(rows)} câu bằng {MODEL}")
 
-    tok, model = load_model()
-    print("Đã nạp mô hình. Bắt đầu.\n")
+    out = out_path(args, src)
+    tien_do = tien_do_path(out)
+    xong: set[str] = set()
+    if args.tiep:
+        if not (out.exists() and tien_do.exists()):
+            print("⚠️  Chưa có mẻ dở nào để chạy tiếp -> chạy lại từ đầu.")
+        else:
+            cu = list(csv.DictReader(out.open(encoding="utf-8")))
+            # Tệp gốc bị sửa giữa chừng thì các chỉ số hàng lệch hết, ghép vào là
+            # hỏng dữ liệu. Đối chiếu id trước, lệch thì làm lại từ đầu.
+            if len(cu) == len(rows) and all(a["id"] == b["id"] for a, b in zip(cu, rows)):
+                xong = set(json.loads(tien_do.read_text(encoding="utf-8")))
+                rows = cu
+            else:
+                print("⚠️  Tệp dở không khớp tệp gốc (số câu hoặc id đã đổi) "
+                      "-> chạy lại từ đầu.")
+
+    print(f"{src.name}: tinh chỉnh {len(rows)} câu bằng {MODEL}")
+    if xong:
+        print(f"Chạy tiếp: {len(xong)} câu đã xử lý trước đó, còn "
+              f"{len(rows) - len(xong)} câu.")
 
     # Xử lý theo THỨ TỰ ĐỘ DÀI chứ không theo thứ tự tệp. Sinh theo lô phải đệm
     # mọi câu cho bằng câu dài nhất trong lô, nên ghép một câu 40 từ với một câu
     # 260 từ là phí gần hết phần đệm. Gom câu dài gần nhau vào cùng lô rút ngắn
     # đáng kể tổng thời gian; kết quả vẫn ghi về đúng vị trí cũ nên tệp ra không
-    # đổi thứ tự.
+    # đổi thứ tự. Thứ tự này TẤT ĐỊNH nên tính lại được y hệt ở lần chạy sau —
+    # `khoi_phuc_tien_do.py` dựa vào đúng tính chất đó.
     order = sorted(range(len(rows)),
                    key=lambda i: len(rows[i]["question"]) + len(rows[i]["answer"]))
+    order = [i for i in order if rows[i]["id"] not in xong]
+    # Kiểm TRƯỚC khi nạp mô hình: nạp Qwen3-14B mất ~2 phút và 9,4 GB VRAM, phí
+    # cả hai nếu chỉ để báo là chẳng còn gì phải làm.
+    if not order:
+        print("Không còn câu nào để xử lý — mẻ này đã xong.")
+        return
+
+    signal.signal(signal.SIGINT, _xin_dung)
+    signal.signal(signal.SIGTERM, _xin_dung)
+
+    tok, model = load_model()
+    print("Đã nạp mô hình. Bắt đầu.  (Ctrl-C hoặc `kill <pid>` để dừng an toàn)\n")
 
     ok, ok_retry, rejected, samples = 0, 0, [], []
     t0 = time.time()
@@ -511,15 +572,24 @@ def main():
             r["question"], r["answer"] = nq, na
             ok += 1
 
-        done = min(start + args.batch, len(rows))
-        rate = done / max(time.time() - t0, 1e-9)
-        print(f"  {done}/{len(rows)}  nhận {ok}  loại {len(rejected)}  "
-              f"({rate:.2f} câu/s, còn ~{(len(rows) - done) / max(rate, 1e-9) / 60:.0f} phút)",
+        xong.update(r["id"] for r in chunk)
+        lam = min(start + args.batch, len(order))     # làm được trong LẦN CHẠY NÀY
+        rate = lam / max(time.time() - t0, 1e-9)      # nên tốc độ mới đúng
+        print(f"  {len(xong)}/{len(rows)}  nhận {ok}  loại {len(rejected)}  "
+              f"({rate:.2f} câu/s, còn ~{(len(order) - lam) / max(rate, 1e-9) / 60:.0f} phút)",
               flush=True)
-        # Ghi lại sau mỗi 20 lô: cả mẻ chạy ~3 tiếng trên card dùng chung với
+        # Ghi lại sau mỗi 20 lô: cả mẻ chạy ~6 tiếng trên card dùng chung với
         # người khác, mất giữa chừng mà không có bản dở là mất trắng công sức.
-        if not args.dry_run and (start // max(args.batch, 1)) % 20 == 19:
-            _write(rows, out_path(args, src))
+        # Ghi CSV trước rồi mới ghi tiến độ: chết giữa hai lần ghi thì cùng lắm
+        # làm lại vài câu, chứ không đánh dấu xong cho câu chưa có trong tệp.
+        if not args.dry_run and (_DUNG or (start // max(args.batch, 1)) % 20 == 19):
+            _write(rows, out)
+            tien_do.write_text(json.dumps(sorted(xong), ensure_ascii=False),
+                               encoding="utf-8")
+        if _DUNG:
+            print(f"\n⏸  Đã dừng ở {len(xong)}/{len(rows)} câu. Đã ghi: {out}")
+            print(f"   Chạy tiếp: thêm --tiep vào đúng lệnh cũ.")
+            return
 
     print(f"\n✅ Nhận {ok}/{len(rows)} (trong đó {ok_retry} câu phải làm lại lượt 2)"
           f"   ❌ Loại {len(rejected)} (giữ nguyên bản gốc)")
@@ -534,8 +604,8 @@ def main():
         print("\n[thử] không ghi tệp.")
         return
 
-    out = out_path(args, src)
     _write(rows, out)
+    tien_do.write_text(json.dumps(sorted(xong), ensure_ascii=False), encoding="utf-8")
     print(f"\n✅ Đã ghi -> {out}")
 
 
