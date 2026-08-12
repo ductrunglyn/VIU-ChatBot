@@ -123,9 +123,26 @@ def _credits(text: str) -> list[str]:
 
 
 _SEM_MENTION_RE = re.compile(r"(?:học\s*)?kỳ\s*(\d{1,2})", re.IGNORECASE)
+# Nhận ra lời từ chối. Bản đầu chỉ liệt kê vài cụm cố định ("chưa có", "không
+# quy định") nên loại oan 17/42 câu: mô hình diễn đạt lại thành "chưa ĐƯỢC quy
+# định", "không NẰM trong kho tài liệu" là trượt hết. Nay bắt theo cấu trúc —
+# một từ phủ định, cách vài chữ, rồi tới một động từ chỉ sự hiện diện.
 _REFUSAL_RE = re.compile(
-    r"không có|chưa có|không tìm thấy|không nêu|không quy định|không đề cập|"
-    r"ngoài phạm vi|không thuộc phạm vi", re.IGNORECASE)
+    r"(?:không|chưa|chẳng)\s+(?:\S+\s+){0,3}"
+    r"(?:có|nêu|ghi|nhắc|đề\s*cập|quy\s*định|tìm\s*thấy|nằm|thuộc|tra|xuất\s*hiện|"
+    r"cung\s*cấp|đưa\s*ra|nói)"
+    r"|ngoài\s+phạm\s+vi|vượt\s+quá\s+phạm\s+vi|không\s+thuộc\s+phạm\s+vi",
+    re.IGNORECASE)
+# Lời từ chối phải nằm ở CÂU ĐẦU TIÊN. Tìm khắp văn bản, hay cả nới rộng ra 40
+# từ đầu, đều bỏ lọt: câu "Trường đào tạo 12 ngành... và KHÔNG CÓ ngành nào tạm
+# dừng tuyển sinh" là một khẳng định trọn vẹn nhưng vẫn dính mẫu phủ định.
+_FIRST_SENT_RE = re.compile(r"^[^.!?]{0,400}(?:[.!?]|$)")
+
+
+def _is_refusal(text: str) -> bool:
+    """Đáp án có mở đầu bằng lời từ chối không."""
+    m = _FIRST_SENT_RE.match(" ".join((text or "").split()))
+    return bool(m and _REFUSAL_RE.search(m.group(0)))
 
 
 def _missing_anchors(orig_a: str, new_a: str) -> list[str]:
@@ -196,7 +213,7 @@ def verify(orig_q: str, orig_a: str, new_q: str, new_a: str,
     # không có ngành đó" thành một câu trả lời nghe hợp lý, mọi cổng phía trên
     # đều không thấy gì — đáp án mới có thể chẳng chứa con số nào. Bắt buộc giữ
     # lại lời phủ định.
-    if _REFUSAL_RE.search(orig_a) and not _REFUSAL_RE.search(new_a):
+    if _is_refusal(orig_a) and not _is_refusal(new_a):
         return False, "mẫu từ chối bị viết thành câu trả lời khẳng định"
 
     # Câu hỏi được phép BỎ BỚT chữ thừa nhưng không được thêm số mới: "học kỳ 2
