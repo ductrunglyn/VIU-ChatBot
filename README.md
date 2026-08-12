@@ -3,6 +3,10 @@
 Trợ lý AI (kiến trúc **RAG**) trả lời câu hỏi về quy chế, chương trình đào tạo,
 tuyển sinh và tư vấn lộ trình học tập cho sinh viên.
 
+## 📖 Tài liệu
+
+- [Hướng dẫn sử dụng web](docs/HUONG-DAN-SU-DUNG-WEB.md) — giao diện, cách dùng, xử lý sự cố
+
 ## Môi trường
 
 Dự án chạy trong conda env **`test`**. Nên chạy trong `screen` để không bị ngắt:
