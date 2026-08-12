@@ -85,11 +85,24 @@ if [[ -n "$MODEL" ]]; then
         "$HOME/.cache/huggingface/" "$DICH:~/.cache/huggingface/"
 fi
 
+# Bộ nhớ Claude Code được đánh khóa THEO ĐƯỜNG DẪN dự án, mà bên đích tên người
+# dùng khác nên khóa cũng khác. Phải chuyển vào đúng thư mục tương ứng, nếu không
+# phiên Claude Code mới bên đó sẽ không thấy gì.
+NGUOI="${DICH%@*}"
+KHOA="-home-${NGUOI}-${THU_MUC}"
+BO_NHO="$HOME/.claude/projects/-home-hoangductrung-hdtrungoi/memory"
+if [[ -d "$BO_NHO" && -z "$KHO" ]]; then
+  echo
+  echo "==> Gửi bộ nhớ Claude Code -> ~/.claude/projects/$KHOA/memory"
+  ssh "$DICH" "mkdir -p ~/.claude/projects/$KHOA/memory"
+  rsync -az "$BO_NHO/" "$DICH:~/.claude/projects/$KHOA/memory/"
+fi
+
 echo
 echo "✅ Xong. Trên server đích:"
 echo "     conda create -n test python=3.10 -y && conda activate test"
 echo "     cd ~/$THU_MUC/ChatBot && pip install -r requirements.txt"
-echo "     screen -S ChatBot"
-echo "     python src/Phase5-UI/app.py            # mở http://<IP-server>:7860"
+
+echo "     bash scripts/chay-web.sh               # tự kiểm tra rồi mở cổng 7860"
 echo
 echo "  (chỉ khi cần train lại: python src/Phase4-Finetuning/build_dataset.py)"
