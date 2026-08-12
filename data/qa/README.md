@@ -32,7 +32,7 @@ Soạn Q/A trong file bảng cho **dễ** (Excel hoặc CSV), theo đúng các c
 ## Sau khi soạn xong
 Chạy script để gộp tất cả file bảng trong thư mục này thành dataset huấn luyện chuẩn:
 ```bash
-conda activate test
+conda activate ChatBot   # hoặc tên env của máy đó
 python src/build_dataset.py
 ```
 Kết quả: `data/qa/train.jsonl` — định dạng **chat messages** (dùng được cho

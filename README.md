@@ -12,13 +12,13 @@ tuyển sinh và tư vấn lộ trình học tập cho sinh viên.
 Dự án chạy trong conda env **`test`**. Nên chạy trong `screen` để không bị ngắt:
 ```bash
 screen -r ChatBot                 # vào lại phiên screen của dự án
-conda activate test               # kích hoạt môi trường
+conda activate ChatBot            # kích hoạt môi trường (tên env tuỳ máy)
 cd ~/hdtrungoi/ChatBot
 nvidia-smi                        # kiểm tra GPU (RTX 4080 SUPER) còn trống không
 ```
 Cài thư viện (chỉ cần 1 lần):
 ```bash
-conda activate test
+conda activate ChatBot
 pip install -r requirements.txt
 pip install sentence-transformers chromadb    # cho Giai đoạn 2
 ```
@@ -40,7 +40,7 @@ data/raw/  ─►  extract  ─►  clean + sửa OCR  ─►  chunk  ─►  da
 
 ### ⭐ Khi có DỮ LIỆU MỚI (đây là quy trình bạn sẽ dùng lại thường xuyên)
 ```bash
-conda activate test
+conda activate ChatBot
 cd ~/hdtrungoi/ChatBot
 
 # 1) Chép file mới (.pdf/.docx/.xlsx) vào thư mục:
@@ -87,7 +87,7 @@ Nhúng chunk bằng **BGE-M3** (đa ngôn ngữ, chạy GPU) → lưu **ChromaDB
 Truy xuất 2 bước: dense lấy 20 ứng viên → **rerank** bằng cross-encoder
 `BGE-reranker-v2-m3` để xếp hạng chính xác hơn → lấy top-5.
 ```bash
-conda activate test
+conda activate ChatBot
 python src/Phase2-Embedding/embed.py --reset                 # nhúng toàn bộ chunk
 python src/Phase2-Embedding/search.py "Em bị CPA 1.5 có bị đuổi học không?"  # test truy xuất
 ```
@@ -100,7 +100,7 @@ python src/Phase2-Embedding/search.py "Em bị CPA 1.5 có bị đuổi học kh
 Ghép truy xuất tài liệu với **LLM Qwen2.5-3B-Instruct** (~6GB VRAM, chạy GPU).
 LLM chỉ trả lời dựa trên tài liệu tìm được và trích dẫn nguồn.
 ```bash
-conda activate test
+conda activate ChatBot
 # Hỏi 1 câu:
 python src/Phase3-RAG/rag.py "Em bị CPA 1.5 ở năm hai có bị buộc thôi học không?"
 # Chế độ hỏi-đáp liên tục:
@@ -181,7 +181,7 @@ trong `common/config.py`). Tham số LoRA/epoch cũng ở `config.py`.
 Website chat (Gradio) cho sinh viên/thầy cô dùng thật. Nạp model 1 lần, phục vụ
 nhiều người; câu trả lời hiện dần (streaming) và kèm nguồn trích dẫn.
 ```bash
-conda activate test
+conda activate ChatBot
 cd ~/hdtrungoi/ChatBot
 python src/Phase5-UI/app.py       # nên chạy trong `screen -r ChatBot` để giữ chạy nền
 ```

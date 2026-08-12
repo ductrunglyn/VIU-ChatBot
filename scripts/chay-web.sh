@@ -4,12 +4,50 @@
 #     bash scripts/chay-web.sh          # khởi động (hoặc báo nếu đã chạy)
 #     bash scripts/chay-web.sh --dung   # dừng
 #     bash scripts/chay-web.sh --xem    # xem nhật ký đang chạy
+#
+# Tên môi trường conda KHÁC NHAU giữa các máy (máy này 'test', máy khác 'ChatBot'),
+# nên script tự dò thay vì đóng cứng. Muốn chỉ định thẳng:
+#     ENV=tên_env bash scripts/chay-web.sh
+#     PY=/đường/dẫn/python bash scripts/chay-web.sh
 set -uo pipefail
 
 GOC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PHIEN="ChatBot"
 NHAT_KY="$GOC/web.log"
-PY="${PY:-$HOME/miniconda3/envs/test/bin/python}"
+
+tim_python() {
+  # 1. Người dùng chỉ định thẳng
+  [[ -n "${PY:-}" ]] && { echo "$PY"; return; }
+  # 2. Chỉ định tên env
+  if [[ -n "${ENV:-}" ]]; then
+    for goc in "$HOME/miniconda3" "$HOME/anaconda3" "$HOME/miniforge3" "/opt/conda"; do
+      [[ -x "$goc/envs/$ENV/bin/python" ]] && { echo "$goc/envs/$ENV/bin/python"; return; }
+    done
+    echo ""; return
+  fi
+  # Từ đây trở xuống phải THỰC SỰ có gradio + torch mới nhận. Không kiểm thì dễ
+  # vớ phải env base: đã đo, base conda được chọn trước cả env 'test' vì
+  # CONDA_PREFIX trỏ vào base, rồi web chết lúc nạp model chứ không báo ở đây.
+  du_goi() { [[ -x "$1" ]] && "$1" -c "import gradio, torch" 2>/dev/null; }
+  # 3. Đang ở trong env sẵn rồi
+  du_goi "${CONDA_PREFIX:-}/bin/python" && { echo "$CONDA_PREFIX/bin/python"; return; }
+  # 4. Dò các tên hay dùng
+  for goc in "$HOME/miniconda3" "$HOME/anaconda3" "$HOME/miniforge3" "/opt/conda"; do
+    for ten in ChatBot chatbot test viu; do
+      p="$goc/envs/$ten/bin/python"
+      du_goi "$p" && { echo "$p"; return; }
+    done
+  done
+  # 5. Bí quá thì quét hết mọi env đang có
+  for goc in "$HOME/miniconda3" "$HOME/anaconda3" "$HOME/miniforge3" "/opt/conda"; do
+    for p in "$goc"/envs/*/bin/python; do
+      du_goi "$p" && { echo "$p"; return; }
+    done
+  done
+  echo ""
+}
+
+PY="$(tim_python)"
 
 case "${1:-}" in
   --dung)
@@ -30,8 +68,13 @@ fi
 
 echo "== Kiểm tra trước khi chạy =="
 
-[[ -x "$PY" ]] || { echo "❌ Không thấy Python của env 'test' ở $PY"
-                    echo "   Tạo bằng: conda create -n test python=3.10 -y"; exit 1; }
+[[ -n "$PY" && -x "$PY" ]] || {
+  echo "❌ Không tìm thấy môi trường conda nào có đủ gradio + torch."
+  echo "   Đang có các env:"
+  conda env list 2>/dev/null | sed 's/^/     /' || echo "     (không chạy được lệnh conda)"
+  echo "   Chỉ định thẳng:  ENV=ChatBot bash scripts/chay-web.sh"
+  echo "   Hoặc cài gói:    conda activate <env> && pip install -r requirements.txt"
+  exit 1; }
 echo "  ✓ Python: $PY"
 
 # Vectordb thiếu thì RAG không truy xuất được gì, mà lỗi lại chỉ lộ ra lúc hỏi

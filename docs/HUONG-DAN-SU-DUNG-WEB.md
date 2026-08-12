@@ -49,8 +49,25 @@ chứ không đoán bừa.
 Chạy trong `screen` để web sống tiếp sau khi đóng terminal:
 
 ```bash
+cd ~/hdtrungoi/ChatBot
+bash scripts/chay-web.sh
+```
+
+Script tự kiểm tra rồi chạy web trong `screen`. Nó **tự dò môi trường conda** nào
+có đủ `gradio` + `torch`, vì tên env khác nhau giữa các máy (`test` ở máy này,
+`ChatBot` ở server 192.168.88.31). Muốn chỉ định thẳng:
+
+```bash
+ENV=ChatBot bash scripts/chay-web.sh
+```
+
+Dừng web: `bash scripts/chay-web.sh --dung` · Xem nhật ký: `--xem`
+
+Làm tay cũng được:
+
+```bash
 screen -r ChatBot          # vào lại phiên đã có
-conda activate test
+conda activate ChatBot     # hoặc tên env của máy đó
 cd ~/hdtrungoi/ChatBot
 python src/Phase5-UI/app.py
 ```

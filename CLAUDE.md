@@ -6,12 +6,14 @@ chính thức của trường. Chủ dự án: thầy Hoàng Đức Trung. **Tra
 ## Chạy dự án
 
 ```bash
-conda activate test            # môi trường bắt buộc
-screen -S ChatBot              # chạy nền để không đứt khi đóng terminal
-python src/Phase5-UI/app.py    # web ở cổng 7860
+bash scripts/chay-web.sh       # tự dò env, tự kiểm tra, chạy trong screen
 ```
 
-Hoặc gọn hơn: `bash scripts/chay-web.sh`
+Tên môi trường conda **khác nhau giữa các máy** (máy của thầy Trung là `test`,
+server 192.168.88.31 là `ChatBot`). Script tự dò env nào có đủ `gradio` + `torch`
+nên không cần sửa gì. Muốn chỉ định thẳng: `ENV=ChatBot bash scripts/chay-web.sh`.
+
+Làm tay thì: `conda activate <env> && python src/Phase5-UI/app.py`
 
 Kiểm GPU bằng `nvidia-smi`. **Người dùng không có quyền sudo.**
 

@@ -100,9 +100,9 @@ fi
 
 echo
 echo "✅ Xong. Trên server đích:"
-echo "     conda create -n test python=3.10 -y && conda activate test"
+echo "     conda create -n ChatBot python=3.10 -y && conda activate ChatBot"
 echo "     cd ~/$THU_MUC/ChatBot && pip install -r requirements.txt"
 
-echo "     bash scripts/chay-web.sh               # tự kiểm tra rồi mở cổng 7860"
+echo "     bash scripts/chay-web.sh               # tự dò env, kiểm tra, mở cổng 7860"
 echo
 echo "  (chỉ khi cần train lại: python src/Phase4-Finetuning/build_dataset.py)"
