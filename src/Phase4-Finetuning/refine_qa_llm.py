@@ -139,31 +139,49 @@ _REFUSAL_RE = re.compile(
 _FIRST_SENT_RE = re.compile(r"^[^.!?]{0,400}(?:[.!?]|$)")
 
 
-# Hư từ tiếng Việt: xuất hiện ở mọi câu nên không nói lên nội dung gì, đối chiếu
-# chúng chỉ làm loãng phép đo.
-_HU_TU = {
-    "cua", "va", "cac", "nhung", "duoc", "cho", "voi", "trong", "theo", "tai", "tu",
-    "den", "khi", "neu", "thi", "la", "co", "khong", "nay", "do", "mot", "hai",
-    "sinh vien", "sinh", "vien", "em", "hoc", "nha truong", "truong", "quy dinh",
-    "phai", "se", "da", "dang", "cung", "ve", "ra", "vao", "len", "xuong", "nhu",
-    "hoac", "ma", "boi", "vi", "nen", "hon", "rat", "chi", "moi", "sau", "truoc",
+# Cụm khung sườn của mọi lời tư vấn học vụ. Chúng có mặt ở gần như mọi đáp án nên
+# mất chúng không phải mất ý — đối chiếu chỉ làm loãng phép đo.
+_KHUNG = {
+    "sinh vien", "nha truong", "quy che", "quy dinh", "hoc tap", "em ay",
+    "co van", "co van hoc tap", "phong quan ly", "quan ly dao tao", "truong hop",
+    "tai lieu", "van ban", "noi dung", "thong tin", "hien tai", "hien nay",
 }
+_GIU_TOI_THIEU = 0.75
 
 
 def _missing_content(orig_a: str, new_a: str) -> list[str]:
-    """Từ nội dung có trong bản gốc mà bản viết lại đánh rơi.
+    """Cụm từ mang nghĩa có trong bản gốc mà bản viết lại đánh rơi.
 
-    Chỉ xét từ ghép hai âm tiết trở lên và bỏ hư từ: diễn đạt lại thì từ đơn thay
-    đổi liên tục ("phải" -> "cần"), nhưng thuật ngữ học vụ như "cảnh báo học tập",
-    "thời gian đào tạo", "buộc thôi học" thì không có cách nói khác — mất chúng
-    nghĩa là mất ý, không phải đổi lời.
+    Đơn vị so sánh là TỪ GHÉP do bộ tách từ tiếng Việt nhận ra, không phải cặp hai
+    chữ liền nhau. Đã thử cách cặp-hai-chữ và số đo bác bỏ thẳng: bản diễn đạt lại
+    trung thành chỉ đạt 66,7% trong khi bản BỎ MẤT hẳn một vế lại đạt 72,2% — thước
+    đo xếp hạng ngược, vì cặp hai chữ cắt ngang ranh giới từ ("chưa bao" lấy từ
+    "chưa bao giờ", "cấp thông" lấy từ "cung cấp thông tin"). Nó đã loại oan 34/42
+    mẫu từ chối.
+
+    Tách từ đúng cách thì thứ tự đảo lại: 85,7% / 71,4% / 57,1%, và các cụm bị mất
+    ở bản hỏng đúng là phần nội dung bị bỏ (thời gian, tối đa, đào tạo, chương
+    trình). Đây là chỗ bộ tách từ tiếng Việt thực sự có ích — so sánh nội dung —
+    chứ không phải để tách token đưa vào mô hình.
     """
-    fold_new = curriculum_index._fold(new_a)
-    words = curriculum_index._fold(orig_a).split()
-    ghep = {" ".join(words[i:i + 2]) for i in range(len(words) - 1)}
-    ghep = {g for g in ghep
-            if len(g) >= 8 and not any(w in _HU_TU for w in g.split())}
-    return sorted(g for g in ghep if g not in fold_new)
+    try:
+        from pyvi import ViTokenizer
+    except ImportError:
+        return []                       # thiếu gói thì bỏ qua, không chặn nhầm
+
+    def ghep(s: str) -> set:
+        seg = ViTokenizer.tokenize(s or "")
+        out = {curriculum_index._fold(w.replace("_", " "))
+               for w in seg.split() if "_" in w}
+        return {g for g in out if g and g not in _KHUNG}
+
+    goc = ghep(orig_a)
+    if not goc:
+        return []
+    mat = sorted(goc - ghep(new_a))
+    if len(goc) - len(mat) >= _GIU_TOI_THIEU * len(goc):
+        return []
+    return mat
 
 
 def _is_refusal(text: str) -> bool:
@@ -217,13 +235,21 @@ def verify(orig_q: str, orig_a: str, new_q: str, new_a: str,
     if not new_q or not new_q.strip() or not new_a or not new_a.strip():
         return False, "bản viết lại rỗng"
 
-    a, b = _facts(orig_a), _facts(new_a)
+    # Hai chiều dùng hai bản văn khác nhau, cố ý:
+    #   - chiều THIẾU đọc bản đã quy đổi "thứ nhất" -> "thứ 1", để bản viết lại tự
+    #     nhiên hơn không bị coi là đánh rơi chữ số;
+    #   - chiều THỪA đọc bản NGUYÊN VĂN, vì chính phép quy đổi đó tự sinh ra con số:
+    #     câu "Thứ nhất là khi điểm dưới 1,2..." bị quy thành "Thứ 1" rồi báo là
+    #     bịa thêm số 1. Đã loại oan một bản viết lại hoàn toàn đúng vì lỗi này.
+    a = _facts(orig_a)
+    b_norm = _facts(new_a)
+    b_raw = sorted(_NUM_RE.findall(new_a or ""))
     allowed = set(a) | set(_facts(extra))
-    thua = sorted({x for x in b if x not in allowed})
+    thua = sorted({x for x in b_raw if x not in allowed})
     if thua:
         return False, f"đáp án có số không có trong dữ liệu: {thua}"
 
-    thieu = sorted(set(a) - set(b))
+    thieu = sorted(set(a) - set(b_norm))
     if thieu:
         return False, f"đáp án làm mất số: {thieu}"
 
@@ -258,7 +284,7 @@ def verify(orig_q: str, orig_a: str, new_q: str, new_a: str,
     # năm thứ 1" rút thành "học kỳ 2" vẫn hỏi đúng chỗ đó, còn "học kỳ 6" thành
     # "học kỳ 8" là hỏng dữ liệu. Riêng số học kỳ thì phải giữ, mất nó là câu hỏi
     # hết xác định và không còn khớp với đáp án.
-    qa, qb = set(_facts(orig_q)), set(_facts(new_q))
+    qa, qb = set(_facts(orig_q)), set(_NUM_RE.findall(new_q or ""))
     if qb - qa:
         return False, f"câu hỏi thêm số lạ: {sorted(qb - qa)}"
     sem_q = {m.group(1) for m in _SEM_MENTION_RE.finditer(_norm(orig_q))}

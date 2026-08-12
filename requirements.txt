@@ -26,3 +26,4 @@ datasets>=3.0.0                # nạp dataset huấn luyện
 
 # Giai đoạn 5 - Giao diện web
 gradio>=5.0.0                  # giao diện chat web
+pyvi                # tách từ tiếng Việt — dùng để ĐỐI CHIẾU nội dung khi tinh chỉnh Q/A
