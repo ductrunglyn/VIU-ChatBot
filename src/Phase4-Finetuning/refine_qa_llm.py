@@ -405,12 +405,21 @@ def _prompt(r: dict, qb: tuple, ab: tuple, extra: str, loi: str = "") -> str:
            f"sách học phần của đáp án gốc — cả tên môn lẫn số tín chỉ trong ngoặc, "
            f"không thêm không bớt môn nào — và chỉ đổi cách viết những câu dẫn "
            f"xung quanh.\n") if loi else ""
+    # Đáp án gốc không liệt kê học phần nào thì phải nói thẳng ra. Đo trên 341 câu
+    # kế hoạch đào tạo: đây là lý do loại đông nhất — hỏi "học kỳ 1 có bao nhiêu
+    # tín chỉ", đáp án gốc chỉ nêu con số, mà mô hình thấy khối dữ kiện có sẵn
+    # danh sách môn là chép cả vào. Số liệu không sai, nhưng khi ấy mọi câu hỏi về
+    # học kỳ N đều cho ra cùng một danh sách — đúng lỗi "câu trả lời giống y nhau".
+    khong_liet_ke = ("\nĐáp án gốc KHÔNG liệt kê học phần nào. Bản viết lại cũng "
+                     "TUYỆT ĐỐI không được liệt kê tên học phần, dù khối dữ kiện "
+                     "có sẵn. Câu hỏi này chỉ hỏi con số.\n"
+                     if not _ITEM_CREDIT_RE.search(r["answer"]) else "")
     return USER.format(
         question=r["question"], answer=r["answer"],
         q_len=len(r["question"].split()), a_len=len(r["answer"].split()),
         facts=("\nDỮ KIỆN TRA CỨU (chỉ được lấy thêm thông tin từ đây):\n"
                + extra + "\n") if extra else "",
-        q_lo=qb[0], q_hi=qb[1], a_lo=ab[0], a_hi=ab[1]) + sua
+        q_lo=qb[0], q_hi=qb[1], a_lo=ab[0], a_hi=ab[1]) + khong_liet_ke + sua
 
 
 def _write(rows: list[dict], out: pathlib.Path) -> None:
