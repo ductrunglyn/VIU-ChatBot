@@ -17,32 +17,65 @@ Làm tay thì: `conda activate <env> && python src/Phase5-UI/app.py`
 
 Kiểm GPU bằng `nvidia-smi`. **Người dùng không có quyền sudo.**
 
-## Tinh chỉnh dữ liệu Q/A
-
-```bash
-bash scripts/tinh-chinh.sh            # chạy, tự tiếp mẻ dở
-bash scripts/tinh-chinh.sh --xem      # tiến độ
-bash scripts/tinh-chinh.sh --dung     # dừng, GIỮ phần đã làm
-```
-
-Mẻ đầy đủ mất ~6 tiếng bằng Qwen3-14B trên card dùng chung, nên **dừng giữa
-chừng rồi chạy tiếp được**: mỗi 20 lô ghi một lần ra `<tệp>_tinh.csv` kèm mốc
-`<tệp>_tinh.csv.tien_do.json`, `--tiep` đọc mốc đó mà bỏ qua câu đã xử lý.
-
-Mốc phải là **tệp riêng**, không so tệp ra với tệp gốc được: câu bị cổng kiểm
-chứng loại thì giữ nguyên bản gốc nên "giống bản gốc" không phân biệt được "đã
-chạy nhưng bị loại" với "chưa chạy". Mẻ nào chạy từ trước khi có tính năng này
-thì `khoi_phuc_tien_do.py` dựng lại mốc từ thứ tự duyệt (tất định, theo độ dài).
-
 ## Kiến trúc
 
-Câu hỏi → BGE-M3 (dense) + BM25 → gộp → BGE-reranker-v2-m3 xếp hạng lại → lọc
-ngữ cảnh → Qwen2.5-3B-Instruct đã fine-tune QLoRA soạn câu trả lời kèm nguồn.
+Câu hỏi → mở rộng truy vấn (khẩu ngữ → thuật ngữ pháp quy) → BGE-M3 (dense) +
+BM25 → hợp nhất bằng RRF → BGE-reranker-v2-m3 xếp hạng lại → lọc ngữ cảnh →
+**ghép trọn Điều** → Qwen3-14B (4-bit NF4) soạn câu trả lời kèm nguồn → **đối
+chiếu trích dẫn bằng code**.
+
+Bốn điểm của tầng truy xuất, tất cả đều để chữa một lỗi đã đo được:
+
+- **Mở rộng truy vấn** (`retriever.expand_query`, bảng ở `config.QUERY_SYNONYMS`):
+  sinh viên viết "đuổi học", văn bản viết "buộc thôi học" — không có từ nào chung
+  cho BM25 bám vào. Chỉ THÊM từ, không thay thế.
+- **RRF** thay cho phép hợp tập cũ: gộp theo THỨ HẠNG nên không phải chuẩn hóa
+  cosine với điểm BM25 vốn khác đơn vị.
+- **Ghép trọn Điều** (`retriever.full_dieu_text`): 18/104 Điều bị cắt nhiều phần
+  (Điều 7 có 6 phần), đoạn trúng thường chỉ là một mẩu nên trả lời thiếu khoản.
+  Khử câu trùng do chồng lấp (đo được 4-5 câu trùng liền đầu mỗi phần).
+- **Rerank gần như cả kho**: kho chỉ 183 đoạn, cross-encoder chấm hết chỉ tốn
+  ~0,2 giây, nên lấy dư ứng viên tới 80 + 40. Truy xuất xấp xỉ hết bỏ sót.
+
+**Câu mở rộng CHỈ dùng cho BM25, KHÔNG dùng cho dense.** Đây là lỗi đã gây hậu quả
+thật: nhồi từ khoá vào câu rồi đem đi encode thì kéo vector ra khỏi vùng ngữ nghĩa
+của câu hỏi gốc. Câu "Em còn nợ 3 môn và GPA 1.9, nên làm gì để ra trường đúng
+hạn?" tụt từ 0,559 xuống 0,538, rơi dưới ngưỡng và sinh viên nhận "chưa tìm thấy
+quy định" — hỏng đúng mục đích của một hệ cố vấn.
+
+### Chặn câu ngoài phạm vi: HAI TẦNG
+
+Trước đây chặn bằng ngưỡng similarity. Nay **không còn dùng cách đó làm cổng chính**
+vì đo được hai vùng điểm đã chồng lên nhau, không ngưỡng nào tách được:
+
+| | câu hợp lệ thấp nhất | câu ngoài phạm vi cao nhất |
+|---|---|---|
+| dense | 0,496 | 0,493 |
+| rerank | 0,0071 | 0,0129 |
+
+- **Tầng 1** — ngưỡng chỉ còn là SÀN AN TOÀN (`DENSE_MIN_SCORE = 0.30`,
+  `RERANK_MIN_SCORE = 0.001`), bắt trường hợp thảm hoạ. Câu ngoài phạm vi đi qua
+  tầng này là ĐÚNG THIẾT KẾ. Yêu cầu duy nhất: không chặn nhầm câu hợp lệ nào.
+- **Tầng 2** — chính Qwen3-14B đọc ngữ cảnh rồi tự từ chối. Đo thực tế **8/8 câu
+  ngoài phạm vi bị từ chối đúng, không bịa câu nào**. Mô hình 14B phán đoán "ngữ
+  cảnh này có trả lời được câu hỏi không" tốt hơn hẳn một con số cosine.
+- `rag._la_tu_choi()` ẩn danh sách nguồn khi câu trả lời là từ chối thuần, để
+  giao diện không trích "Điều 5 — Quy chế đào tạo" cho câu hỏi nấu phở. Chỉ ẩn khi
+  vừa có cụm từ chối VỪA không dẫn tên văn bản nào — vì có câu vừa hữu ích vừa
+  chứa "tài liệu không nêu rõ...".
+
+Đo bằng `python src/Phase3-RAG/calib_retrieval.py` (tầng 1, nhanh) hoặc thêm
+`--llm` (đo cả tầng 2). Kết quả hiện tại: **tầng 1 chặn nhầm 0/22, tầng 2 từ chối
+đúng 8/8**, độ trễ truy xuất trung vị 328ms. Chạy lại MỖI KHI đổi cách truy xuất.
+
+Bộ đo có nhóm riêng `TU_VAN` — câu sinh viên kể hoàn cảnh kèm con số cụ thể. Bộ đo
+đầu tiên thiếu hẳn nhóm này nên đã bỏ lọt lỗi trên; đừng bỏ nhóm đó đi.
 
 Song song có **tầng tra cứu có cấu trúc** (`src/common/curriculum_index.py`):
 số tín chỉ và danh sách học phần được **code tra thẳng** từ dữ liệu đã bóc rồi
-chèn vào ngữ cảnh dưới nhãn `DỮ KIỆN TRA CỨU TỪ KẾ HOẠCH ĐÀO TẠO`. Mô hình 3B
-không cộng số đáng tin — đã đo nó bịa "150 tín chỉ".
+chèn vào ngữ cảnh dưới nhãn `DỮ KIỆN TRA CỨU TỪ KẾ HOẠCH ĐÀO TẠO`. Mô hình tự cộng
+là bịa: 3B từng bịa "150 tín chỉ", 14B bịa "132 tín chỉ" cho ngành Kỹ thuật nhiệt
+(thật là 150) khi khối dữ kiện tra sai.
 
 | Giai đoạn | Thư mục |
 |---|---|
@@ -51,6 +84,36 @@ không cộng số đáng tin — đã đo nó bịa "150 tín chỉ".
 | 3. RAG | `src/Phase3-RAG/` |
 | 4. Fine-tune | `src/Phase4-Finetuning/` |
 | 5. Giao diện web | `src/Phase5-UI/` |
+
+## Kết quả fine-tune Qwen3-14B — ĐÃ TẮT
+
+Đã train lại QLoRA trên đúng base Qwen3-14B: 3189 mẫu, 3 epoch, 1197 bước, 7h17m,
+loss cuối 0,070, token accuracy 98,8%. **Loss đẹp nhưng mô hình KÉM HƠN bản gốc**,
+nên `USE_FINETUNED = False`. Adapter vẫn giữ ở `models/qlora-viu`.
+
+Đo bằng `python src/Phase4-Finetuning/so_sanh_adapter.py` (nạp một lần rồi bật/tắt
+adapter để so trên cùng ngữ cảnh), 7 câu:
+
+- **Chép nguyên văn tài liệu.** Bản fine-tune trả lời theo đúng khuôn "Theo <văn
+  bản> (Điều N), quy định như sau: <đọc lại nguyên đoạn>", dài gấp 2-3 lần bản gốc
+  (470 vs 136 từ; 451 vs 180 từ) và **bị cắt cụt giữa câu** vì chạm
+  `LLM_MAX_NEW_TOKENS`. Hỏi "thời gian đào tạo tối đa" thì nó đọc cả Điều 2 về cấu
+  trúc chương trình mà không hề trả lời câu hỏi.
+- **Có ca trả lời lạc hẳn đề.** "Em bị CPA 1.5 ở năm hai thì có bị buộc thôi học
+  không?" -> bản fine-tune đáp về **học phí** và khuyên liên hệ Phòng Tài chính -
+  Kế toán. Bản gốc so đúng mốc 1,4 và trả lời chính xác.
+- Chỉ 1/7 câu bản fine-tune nhỉnh hơn (diễn đạt số tín chỉ mượt hơn), 2/7 hoà
+  (câu từ chối), 4/7 kém hơn rõ.
+
+**Nguyên nhân:** đáp án trong `data/qa/*.csv` phần lớn là trích nguyên văn văn bản,
+nên 3 epoch với loss 0,07 dạy mô hình học thuộc đúng lối chép đó. Muốn fine-tune có
+ích thì phải sửa DỮ LIỆU trước (viết lại đáp án theo lối tư vấn, ngắn gọn, có kết
+luận ở câu đầu) chứ không phải chỉnh siêu tham số. Checkpoint từng epoch còn ở
+`models/qlora-viu-runs/` nếu muốn thử epoch 1 (ít học thuộc hơn).
+
+**Bài học ghi lại:** loss giảm KHÔNG đủ để kết luận fine-tune tốt. Luôn chạy
+`so_sanh_adapter.py` đối chiếu với model gốc trước khi bật `USE_FINETUNED`.
+
 
 ## Nguyên tắc bắt buộc
 
@@ -76,13 +139,21 @@ Chỗ nào chưa xác định được thì nói thẳng là chưa xác định 
 
 ## Ràng buộc phần cứng
 
-Card **dùng chung với người khác** — thường bị chiếm ~4 GB ngoài tầm kiểm soát.
-Đo được: tổng 15,57 GB, còn ~11,5 GB.
+Server 192.168.88.31: **RTX 5090, 32,6 GB VRAM** (đo 08/2026, lúc đo chỉ có tiến
+trình của dự án này chiếm card).
 
-- Chạy web: Qwen2.5-3B + BGE-M3 + reranker ≈ 7,5 GB ✅
-- Fine-tune 3B: ≈ 5,3 GB ✅
-- Fine-tune Qwen3-14B: trọng số đã 9,39 GB, đỉnh cần thêm 2,90 GB → **tràn**.
-  Chỉ chạy được khi card trống hẳn.
+- Chạy web: Qwen3-14B 4-bit + BGE-M3 + reranker ≈ **13,9 GB đỉnh** ✅
+- Trọng số 14B: 9,97 GB ở NF4. Bản bf16 cần ~29 GB → không dùng chung với
+  embedder + reranker được, phải để `LLM_LOAD_4BIT = True`.
+- Tốc độ đo được: 46 token/giây, thời gian trả lời trung vị **3,0 giây**.
+
+**Đĩa ĐÃ ĐẦY: còn 7,2 GB/1,9 TB (100%)** (đo 18/08/2026). Cache HuggingFace chiếm
+57 GB (riêng Qwen3-14B 28 GB); cả dự án ChatBot chỉ 1,5 GB. Phần lớn dung lượng
+là của NGƯỜI DÙNG KHÁC — ổ `/` dùng chung cả máy. KHÔNG tải thêm model cho tới khi
+dọn được chỗ; hiện chỉ đủ chạy vì mọi model cần thiết đã nằm sẵn trong cache.
+
+Driver NVIDIA 570.133.07 chỉ hỗ trợ tới CUDA 12.8 → phải dùng **torch cu128**
+(`torch==2.11.0+cu128`). Bản cu130 nạp lên là lỗi "NVIDIA driver is too old".
 
 **Web và training không chạy cùng lúc được.** Muốn train thì tắt web trước.
 

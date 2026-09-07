@@ -14,6 +14,20 @@ set -uo pipefail
 GOC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PHIEN="ChatBot"
 NHAT_KY="$GOC/web.log"
+CONG=7860          # phải khớp UI_PORT trong src/common/config.py
+
+# Gradio mặc định ghi tệp tạm vào /tmp/gradio. Trên máy nhiều người dùng, thư mục
+# đó do người CHẠY TRƯỚC tạo và mang quyền của họ -> ta không tạo được thư mục con
+# và web chết bằng "PermissionError: /tmp/gradio/<hash>". Lỗi này xuất hiện SAU khi
+# log đã in "Sẵn sàng", nên script tưởng chạy thành công trong khi cổng 7860 chưa
+# hề mở. Trỏ sang thư mục tạm của chính dự án để khỏi tranh chấp.
+export GRADIO_TEMP_DIR="${GRADIO_TEMP_DIR:-$GOC/.gradio_tmp}"
+mkdir -p "$GRADIO_TEMP_DIR"
+
+# Card DÙNG CHUNG với việc khác trên máy. Đã gặp: một job train khác chiếm
+# 18,5 GB, web còn 13,5 GB và chết OOM ngay lúc nạp model. Bật cấp phát bộ nhớ
+# co giãn để bớt phân mảnh — đo được đỉnh tụt từ 13,9 GB xuống 13,05 GB, vừa đủ.
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
 du_goi() { [[ -x "$1" ]] && "$1" -c "import gradio, torch" 2>/dev/null; }
 
@@ -84,10 +98,6 @@ tim_python() {
 PY="$(tim_python)"
 
 case "${1:-}" in
-  --python)
-    # Chỉ in đường dẫn Python dò được rồi thoát. Để script khác (tinh-chinh.sh)
-    # dùng lại đúng bộ dò này thay vì chép logic sang chỗ thứ hai.
-    [[ -n "$PY" ]] && { echo "$PY"; exit 0; } || exit 1 ;;
   --dung)
     screen -S "$PHIEN" -X quit 2>/dev/null
     pkill -f "src/Phase5-UI/app.py" 2>/dev/null
@@ -99,7 +109,7 @@ case "${1:-}" in
 esac
 
 if pgrep -f "src/Phase5-UI/app.py" > /dev/null; then
-  echo "✅ Web đang chạy rồi: http://$(hostname -I | awk '{print $1}'):7860"
+  echo "✅ Web đang chạy rồi: http://$(hostname -I | awk '{print $1}'):${CONG}"
   echo "   Xem nhật ký: bash scripts/chay-web.sh --xem"
   exit 0
 fi
@@ -138,17 +148,33 @@ if [[ ! -d "$GOC/data/vectordb" ]] || [[ -z "$(ls -A "$GOC/data/vectordb" 2>/dev
 fi
 echo "  ✓ Kho vector: $(du -sh "$GOC/data/vectordb" | cut -f1)"
 
-if [[ -d "$GOC/models/qlora-viu" ]]; then
-  echo "  ✓ Adapter fine-tune: có"
+# Adapter chỉ dùng được khi khớp base model. Đọc thẳng adapter_config.json thay vì
+# chỉ xem thư mục có tồn tại — bản cũ train trên Qwen2.5-3B từng khiến script báo
+# "có adapter" trong khi rag.py phải bỏ qua vì không nạp được vào 14B.
+# Nay adapter đã khớp base nhưng USE_FINETUNED=False vì đo được nó kém hơn model gốc,
+# nên phải xem cả cờ đó mới báo đúng cái đang thực sự chạy.
+ADAPTER_CFG="$GOC/models/qlora-viu/adapter_config.json"
+if [[ -f "$ADAPTER_CFG" ]]; then
+  BASE=$(grep -o '"base_model_name_or_path"[^,]*' "$ADAPTER_CFG" | cut -d'"' -f4)
+  DUNG=$(grep -E "^USE_FINETUNED" "$GOC/src/common/config.py" | tail -1 | grep -c True)
+  if [[ "$BASE" == "Qwen/Qwen3-14B" && "$DUNG" == "1" ]]; then
+    echo "  ✓ Adapter fine-tune: ĐANG DÙNG (khớp base)"
+  elif [[ "$BASE" == "Qwen/Qwen3-14B" ]]; then
+    # Adapter khớp base nhưng bị tắt có chủ đích: đo được nó KÉM HƠN model gốc.
+    echo "  ✓ Chạy MODEL GỐC (USE_FINETUNED=False — adapter có nhưng đã tắt, xem CLAUDE.md)"
+  else
+    echo "  ⚠ Adapter qlora-viu train trên '$BASE', không khớp Qwen3-14B -> chạy MODEL GỐC"
+  fi
 else
-  echo "  ⚠ Chưa có models/qlora-viu — web vẫn chạy nhưng dùng model GỐC, chất lượng kém hơn hẳn"
+  echo "  ⚠ Chưa có models/qlora-viu — chạy model GỐC"
 fi
 
 if command -v nvidia-smi >/dev/null 2>&1; then
   TRONG=$(nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits | head -1)
   echo "  ✓ GPU trống: ${TRONG} MiB"
-  # Cần ~7,5GB: Qwen2.5-3B 4-bit + BGE-M3 + reranker + bộ nhớ đệm.
-  (( TRONG < 8000 )) && echo "     ⚠ dưới 8000 MiB, dễ tràn. Xem ai đang chiếm: nvidia-smi"
+  # Đo thực tế: Qwen3-14B NF4 + BGE-M3 + reranker đỉnh 13,9 GB. Lấy 15000 làm mức
+  # cảnh báo để còn dư cho ngữ cảnh dài.
+  (( TRONG < 15000 )) && echo "     ⚠ dưới 15000 MiB, dễ tràn với 14B. Xem ai đang chiếm: nvidia-smi"
 else
   echo "  ⚠ Không có nvidia-smi — chạy bằng CPU, mỗi câu trả lời sẽ mất vài PHÚT"
 fi
@@ -158,15 +184,21 @@ echo "== Khởi động (nạp model mất ~1 phút) =="
 cd "$GOC"
 screen -dmS "$PHIEN" bash -c "$PY src/Phase5-UI/app.py 2>&1 | tee '$NHAT_KY'"
 
+# Căn cứ "đã lên" phải là CỔNG ĐANG MỞ, không phải dòng log "Sẵn sàng": app.py in
+# dòng đó TRƯỚC khi gọi launch(), nên khi launch() ném lỗi (đã gặp: PermissionError
+# ở /tmp/gradio) script vẫn báo thành công còn cổng 7860 chưa hề mở — đúng cảnh
+# "web báo chạy mà không vào được".
+dang_mo() { ss -tln 2>/dev/null | grep -q ":${CONG} "; }
+
 for _ in $(seq 60); do
   sleep 2
-  grep -q "Sẵn sàng" "$NHAT_KY" 2>/dev/null && break
+  dang_mo && break
   grep -qiE "Traceback|OutOfMemory|Error" "$NHAT_KY" 2>/dev/null && {
     echo "❌ Lỗi khi khởi động:"; tail -15 "$NHAT_KY"; exit 1; }
 done
 
-if grep -q "Sẵn sàng" "$NHAT_KY" 2>/dev/null; then
-  echo "✅ Web đã lên: http://$(hostname -I | awk '{print $1}'):7860"
+if dang_mo; then
+  echo "✅ Web đã lên: http://$(hostname -I | awk '{print $1}'):${CONG}"
   echo "   Nhật ký : bash scripts/chay-web.sh --xem"
   echo "   Dừng    : bash scripts/chay-web.sh --dung"
 else

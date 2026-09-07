@@ -33,13 +33,13 @@ EXAMPLES = [
     "Sinh viên bị cảnh báo học tập trong những trường hợp nào?",
     "Điều kiện để được xét tốt nghiệp là gì?",
     "Trường công nhận những chứng chỉ ngoại ngữ nào?",
-    "Em còn nợ 3 môn và CPA 1.9, nên làm gì để ra trường đúng hạn?",
+    "Em còn nợ 3 môn và GPA 1.9, nên làm gì để ra trường đúng hạn?",
     "Nộp học phí muộn thì bị xử lý thế nào?",
 ]
 
 WELCOME = (
-    "Chào em 👋 Cô/thầy là trợ lý cố vấn học tập của **Trường ĐHCN Việt - Hung**.\n\n"
-    "Em cứ hỏi về quy chế đào tạo, chuẩn đầu ra ngoại ngữ – tin học, học phí, "
+    "Chào em 👋 Cô/thầy là trợ lý cố vấn học tập của **Trường ĐHCN Việt-Hung**.\n\n"
+    "Em cứ hỏi về quy chế đào tạo, chuẩn đầu ra ngoại ngữ - tin học, học phí, "
     "đào tạo trực tuyến hay lộ trình học tập nhé. Mọi câu trả lời đều dựa trên "
     "văn bản chính thức của Nhà trường và có ghi rõ nguồn."
 )
@@ -197,14 +197,14 @@ def on_delete(store, cid):
 # -------------------------------------------------------------------- giao diện
 def build_ui():
     # Gradio 6 chuyển css/theme sang launch(); ở đây chỉ khai báo cấu trúc trang.
-    with gr.Blocks(title="Cố vấn học tập AI — ĐHCN Việt - Hung",
+    with gr.Blocks(title="Cố vấn học tập AI - ĐHCN Việt-Hung",
                    fill_height=True) as demo:
         # Lịch sử nằm trong trình duyệt của sinh viên, không lưu trên máy chủ.
         store = gr.BrowserState(_empty_store(), storage_key="viu_chat_history_v1")
 
         with gr.Sidebar(width=290):
             gr.HTML(theme.sidebar_brand_html())
-            btn_new = gr.Button("＋  Đoạn chat mới", elem_classes="viu-newchat")
+            btn_new = gr.Button("＋ Đoạn chat mới", elem_classes="viu-newchat")
             gr.HTML('<div class="viu-sidebar-title">Lịch sử trò chuyện</div>')
             convo_list = gr.Column()
 
@@ -218,7 +218,7 @@ def build_ui():
 
         with gr.Row():
             box = gr.Textbox(
-                placeholder="Nhập câu hỏi của em… (Enter để gửi)",
+                placeholder="Nhập câu hỏi của em ... (Enter để gửi)",
                 show_label=False, scale=9, lines=1, max_lines=6, autofocus=True,
             )
             btn_send = gr.Button("Gửi", scale=1, elem_classes="viu-send")
@@ -229,7 +229,7 @@ def build_ui():
                     lambda q=q: q, outputs=box)
 
         gr.HTML(
-            '<div class="viu-foot">Thông tin mang tính tham khảo — trường hợp quan '
+            '<div class="viu-foot">Thông tin mang tính tham khảo - trường hợp quan '
             'trọng em hãy xác nhận lại với <b>Phòng Quản lý đào tạo</b> hoặc '
             '<b>cố vấn học tập</b> của lớp.</div>'
         )
@@ -264,7 +264,7 @@ def main():
     print("Đang nạp model (embedding + rerank + LLM)... vui lòng chờ ~1 phút.")
     rag._load_llm()                 # nạp LLM + adapter
     list(rag.answer_stream("xin chào", []))[:1]  # làm nóng retriever/reranker
-    print("✅ Sẵn sàng. Khởi động giao diện web...")
+    print("✅ Sẵn sàng. Khởi động giao diện web ...")
 
     build_ui().launch(
         server_name="0.0.0.0", server_port=config.UI_PORT, share=False,

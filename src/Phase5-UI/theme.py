@@ -32,7 +32,7 @@ def data_uri(path: pathlib.Path) -> str:
 
 def header_html() -> str:
     src = data_uri(LOCKUP)
-    logo = (f'<img src="{src}" alt="Trường Đại học Công nghiệp Việt - Hung" '
+    logo = (f'<img src="{src}" alt="Trường Đại học Công nghiệp Việt-Hung" '
             f'class="viu-lockup">') if src else ""
     return f"""
 <div class="viu-header">

@@ -1,0 +1,735 @@
+<title>Kịch bản bảo vệ VIU Chatbot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,600;0,700;1,6..72,400;1,6..72,500&family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+/* ── Bảng token: nền giấy công văn, mực xanh đen, dấu son đỏ, phụ trợ xanh rêu ── */
+:root{
+  --paper:#FBFAF7;
+  --paper-2:#F3F1EB;
+  --paper-3:#EAE7DE;
+  --ink:#16181D;
+  --ink-2:#3D4048;
+  --muted:#6E6B64;
+  --rule:#E0DCD2;
+  --seal:#A8372A;
+  --seal-soft:#F4E7E3;
+  --moss:#2C5D63;
+  --moss-soft:#E3EDEC;
+  --shadow:0 1px 2px rgba(22,24,29,.05), 0 8px 24px -14px rgba(22,24,29,.22);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#15171B;
+    --paper-2:#1C1F24;
+    --paper-3:#23272D;
+    --ink:#E9E6DE;
+    --ink-2:#C2BFB7;
+    --muted:#8E8B83;
+    --rule:#2E323A;
+    --seal:#E38073;
+    --seal-soft:#33211E;
+    --moss:#7EB8BD;
+    --moss-soft:#17282A;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -14px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#15171B;
+  --paper-2:#1C1F24;
+  --paper-3:#23272D;
+  --ink:#E9E6DE;
+  --ink-2:#C2BFB7;
+  --muted:#8E8B83;
+  --rule:#2E323A;
+  --seal:#E38073;
+  --seal-soft:#33211E;
+  --moss:#7EB8BD;
+  --moss-soft:#17282A;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -14px rgba(0,0,0,.7);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:16px;
+  line-height:1.68;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1040px;margin:0 auto;padding:0 24px 96px}
+
+/* ── Đầu trang ── */
+.mast{padding:56px 0 32px;border-bottom:2px solid var(--ink)}
+.eyebrow{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:500;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--seal);margin:0 0 18px
+}
+h1{
+  font-family:Newsreader,Georgia,serif;font-weight:700;
+  font-size:clamp(2.1rem,5.2vw,3.35rem);line-height:1.08;letter-spacing:-.015em;
+  margin:0 0 14px;text-wrap:balance
+}
+.dek{
+  font-family:Newsreader,Georgia,serif;font-size:clamp(1.05rem,2.2vw,1.28rem);
+  line-height:1.5;color:var(--ink-2);max-width:60ch;margin:0
+}
+.mast-meta{
+  display:flex;flex-wrap:wrap;gap:10px 28px;margin-top:26px;
+  font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--muted)
+}
+.mast-meta b{color:var(--ink);font-weight:600}
+
+/* ── Dải số chốt ── */
+.figs{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:1px;background:var(--rule);border:1px solid var(--rule);
+  margin:34px 0 12px
+}
+.fig{background:var(--paper);padding:16px 18px}
+.fig .n{
+  font-family:Newsreader,Georgia,serif;font-size:1.85rem;font-weight:600;
+  line-height:1.1;font-variant-numeric:tabular-nums;display:block
+}
+.fig .l{font-size:12.5px;color:var(--muted);line-height:1.4;display:block;margin-top:4px}
+
+/* ── Tiêu đề mục ── */
+h2{
+  font-family:Newsreader,Georgia,serif;font-weight:600;
+  font-size:clamp(1.5rem,3.4vw,2rem);line-height:1.18;letter-spacing:-.01em;
+  margin:0 0 6px;text-wrap:balance
+}
+.sec{margin-top:72px}
+.sec-head{border-top:1px solid var(--ink);padding-top:18px;margin-bottom:30px}
+.sec-num{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;
+  letter-spacing:.15em;color:var(--seal);display:block;margin-bottom:10px
+}
+.sec-note{color:var(--muted);font-size:14.5px;max-width:70ch;margin:6px 0 0}
+h3{
+  font-family:"Be Vietnam Pro",sans-serif;font-weight:600;font-size:1.02rem;
+  margin:34px 0 10px;letter-spacing:-.005em
+}
+
+p{margin:0 0 14px;max-width:72ch}
+a{color:var(--seal)}
+strong{font-weight:600}
+code{
+  font-family:"IBM Plex Mono",monospace;font-size:.87em;
+  background:var(--paper-2);border:1px solid var(--rule);
+  padding:1px 5px;border-radius:3px
+}
+
+/* ── Danh sách kiểm ── */
+.check{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:9px}
+.check li{
+  display:grid;grid-template-columns:22px 1fr;gap:11px;align-items:start;
+  font-size:14.8px;line-height:1.55
+}
+.check li::before{
+  content:"";width:15px;height:15px;margin-top:5px;
+  border:1.5px solid var(--muted);border-radius:2px
+}
+.check li.done::before{
+  border-color:var(--moss);background:var(--moss);
+  box-shadow:inset 0 0 0 2px var(--paper)
+}
+.t-block{margin-bottom:26px}
+.t-tag{
+  display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;
+  font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--moss);background:var(--moss-soft);
+  padding:3px 9px;border-radius:2px;margin-bottom:12px
+}
+
+/* ── Khối kịch bản có mốc giờ ── */
+.run{display:flex;flex-direction:column;gap:0}
+.cue{
+  display:grid;grid-template-columns:86px 1fr;gap:0;
+  border-top:1px solid var(--rule)
+}
+.cue:last-child{border-bottom:1px solid var(--rule)}
+.cue-rail{
+  padding:22px 16px 22px 0;border-right:1px solid var(--rule);
+  font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;
+  text-align:right
+}
+.cue-rail .at{display:block;font-size:15px;font-weight:600;color:var(--ink)}
+.cue-rail .dur{display:block;font-size:11.5px;color:var(--muted);margin-top:3px}
+.cue-body{padding:22px 0 26px 22px;min-width:0}
+.cue-title{
+  font-family:Newsreader,Georgia,serif;font-size:1.28rem;font-weight:600;
+  line-height:1.25;margin:0 0 12px
+}
+.cue.demo{background:var(--seal-soft)}
+.cue.demo .cue-rail{padding-left:14px}
+.cue.demo .cue-title{color:var(--seal)}
+
+.slide{
+  font-size:14px;color:var(--ink-2);background:var(--paper-2);
+  border-left:2px solid var(--rule);padding:10px 14px;margin:0 0 14px;max-width:none
+}
+.slide b{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+  display:block;margin-bottom:5px
+}
+.say{
+  font-family:Newsreader,Georgia,serif;font-size:1.08rem;line-height:1.62;
+  color:var(--ink);margin:0 0 14px;padding-left:16px;
+  border-left:2px solid var(--seal);max-width:66ch
+}
+.say + .say{margin-top:-4px}
+.beat{
+  display:block;font-family:"Be Vietnam Pro",sans-serif;font-size:12.5px;
+  font-style:normal;color:var(--muted);margin-top:8px
+}
+.beat::before{content:"▸ ";color:var(--seal)}
+
+/* ── Bảng ── */
+.tw{overflow-x:auto;margin:0 0 18px;border:1px solid var(--rule)}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:520px}
+th,td{padding:10px 14px;text-align:left;vertical-align:top;border-bottom:1px solid var(--rule)}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  background:var(--paper-2);white-space:nowrap
+}
+tbody tr:last-child td{border-bottom:none}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap;font-family:"IBM Plex Mono",monospace;font-size:13px}
+
+/* ── Hỏi đáp ── */
+.qa{display:flex;flex-direction:column;gap:2px}
+.q{border-top:1px solid var(--rule);padding:20px 0 4px}
+.q-t{
+  font-family:Newsreader,Georgia,serif;font-size:1.15rem;font-weight:600;
+  line-height:1.34;margin:0 0 10px;color:var(--seal);max-width:64ch
+}
+.q-t .qn{
+  font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;
+  color:var(--muted);margin-right:10px;font-variant-numeric:tabular-nums
+}
+.q p{font-size:15px;margin-bottom:11px}
+.q p:last-child{margin-bottom:18px}
+.pin{
+  font-size:13.5px;color:var(--ink-2);background:var(--paper-2);
+  padding:9px 13px;border-left:2px solid var(--moss);max-width:none
+}
+.pin b{color:var(--moss);font-weight:600}
+
+/* ── Cảnh báo ── */
+.warn{
+  border:1px solid var(--seal);border-left-width:3px;
+  background:var(--seal-soft);padding:16px 18px;margin:0 0 18px
+}
+.warn h3{margin-top:0;color:var(--seal)}
+.warn p:last-child{margin-bottom:0}
+.warn ol{margin:0;padding-left:20px}
+.warn li{margin-bottom:9px;font-size:14.5px}
+.warn li:last-child{margin-bottom:0}
+
+.foot{
+  margin-top:80px;border-top:1px solid var(--rule);padding-top:20px;
+  font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--muted)
+}
+
+@media (max-width:640px){
+  .wrap{padding:0 18px 72px}
+  .cue{grid-template-columns:1fr}
+  .cue-rail{
+    border-right:none;text-align:left;padding:18px 0 0;
+    display:flex;gap:12px;align-items:baseline
+  }
+  .cue-rail .dur{margin-top:0}
+  .cue-body{padding:10px 0 22px}
+  .cue.demo .cue-rail{padding-left:0}
+  .say{font-size:1.02rem}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">Kịch bản trình bày · ≈19 phút + hỏi đáp</p>
+  <h1>Bảo vệ đề tài:<br>Chatbot cố vấn học tập VIU</h1>
+  <p class="dek">Trợ lý hỏi–đáp học vụ cho sinh viên Trường Đại học Công nghiệp Việt&nbsp;–&nbsp;Hung, trả lời hoàn toàn dựa trên văn bản chính thức của Nhà trường và luôn dẫn đúng Điều, đúng tên văn bản.</p>
+  <div class="mast-meta">
+    <span>Người trình bày: <b>Hoàng Đức Trung</b></span>
+    <span>Hệ thống chạy tại <b>192.168.88.31:7860</b></span>
+    <span>Toàn bộ số liệu dưới đây <b>đã đo trên máy thật</b></span>
+  </div>
+</header>
+
+<div class="figs">
+  <div class="fig"><span class="n">12</span><span class="l">văn bản gốc của Nhà trường</span></div>
+  <div class="fig"><span class="n">183</span><span class="l">đoạn tri thức đã vector hoá</span></div>
+  <div class="fig"><span class="n">3,0<small style="font-size:.55em;font-weight:400"> s</small></span><span class="l">thời gian trả lời trung vị</span></div>
+  <div class="fig"><span class="n">8/8</span><span class="l">câu ngoài phạm vi bị từ chối đúng</span></div>
+  <div class="fig"><span class="n">0/22</span><span class="l">câu hợp lệ bị chặn nhầm</span></div>
+</div>
+
+<!-- ══════════════ 1 ══════════════ -->
+<section class="sec">
+  <div class="sec-head">
+    <span class="sec-num">MỤC 1</span>
+    <h2>Ba câu chốt — nếu chỉ được nói một phút</h2>
+    <p class="sec-note">Học thuộc ba câu này. Mọi phần còn lại của buổi bảo vệ chỉ là mở rộng chúng ra.</p>
+  </div>
+
+  <p class="say"><b>Một.</b> Hệ thống không phải là một mô hình ngôn ngữ được hỏi đáp tự do. Nó là một hệ truy xuất: mỗi câu trả lời đều bị buộc phải sinh ra từ đoạn văn bản mà hệ thống vừa tìm được, và đoạn đó được hiện lên cho sinh viên tự kiểm chứng.</p>
+
+  <p class="say"><b>Hai.</b> Điểm khó nhất của bài toán này không phải là trả lời đúng, mà là <em>từ chối đúng</em>. Một hệ tư vấn học vụ mà bịa ra mốc điểm buộc thôi học thì nguy hiểm hơn là không có hệ thống nào. Vì vậy phần lớn công sức kỹ thuật của đề tài nằm ở ba lớp chống bịa, chứ không nằm ở việc chọn mô hình.</p>
+
+  <p class="say"><b>Ba.</b> Toàn bộ hệ thống chạy cục bộ trên một máy chủ của Nhà trường, không gửi bất kỳ dữ liệu nào ra ngoài, không trả phí theo lượt hỏi. Khi quy chế thay đổi, chỉ cần thả văn bản mới vào thư mục và chạy lại hai câu lệnh — không phải huấn luyện lại mô hình.</p>
+</section>
+
+<!-- ══════════════ 2 ══════════════ -->
+<section class="sec">
+  <div class="sec-head">
+    <span class="sec-num">MỤC 2</span>
+    <h2>Chuẩn bị trước buổi bảo vệ</h2>
+    <p class="sec-note">Rủi ro lớn nhất của buổi này là demo hỏng. Máy chủ dùng chung với người khác và địa chỉ công khai đổi mỗi lần khởi động lại.</p>
+  </div>
+
+  <div class="t-block">
+    <span class="t-tag">Trước 1 ngày</span>
+    <ul class="check">
+      <li>Chạy <code>python src/Phase3-RAG/calib_retrieval.py</code> để xác nhận số liệu trong slide vẫn đúng với mã nguồn hiện tại.</li>
+      <li>Hỏi thử toàn bộ 5 câu demo ở Mục 4, chụp màn hình từng câu trả lời.</li>
+      <li>Xuất 5 ảnh chụp đó ra một tệp PDF dự phòng — nếu mạng hỏng thì trình chiếu ảnh.</li>
+      <li>Kiểm tra ai đang chiếm GPU: <code>nvidia-smi</code>. Hệ thống cần khoảng 14&nbsp;GB liên tục.</li>
+    </ul>
+  </div>
+
+  <div class="t-block">
+    <span class="t-tag">Trước 30 phút</span>
+    <ul class="check">
+      <li>Khởi động lại web: <code>bash scripts/chay-web.sh</code>, chờ báo <code>✅ Web đã lên</code>.</li>
+      <li>Lấy <strong>địa chỉ công khai mới</strong> từ screen <code>CFTunnel</code> — địa chỉ cũ đã chết. Dán sẵn vào slide cuối.</li>
+      <li>Hỏi một câu bất kỳ để mô hình nạp xong. <em>Câu đầu tiên luôn chậm hơn các câu sau.</em></li>
+      <li>Mở sẵn hai tab: giao diện chatbot và tệp PDF dự phòng.</li>
+    </ul>
+  </div>
+
+  <div class="t-block">
+    <span class="t-tag">Trước 5 phút</span>
+    <ul class="check">
+      <li>Tắt thông báo hệ thống, đóng các cửa sổ khác.</li>
+      <li>Phóng to cỡ chữ trình duyệt lên 125–150% để hội đồng ở cuối phòng đọc được phần trích nguồn.</li>
+      <li>Xoá lịch sử trò chuyện để bắt đầu sạch.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ══════════════ 3 ══════════════ -->
+<section class="sec">
+  <div class="sec-head">
+    <span class="sec-num">MỤC 3</span>
+    <h2>Kịch bản trình bày theo mốc giờ</h2>
+    <p class="sec-note">Cột trái là mốc phút tích luỹ. Phần in nghiêng là lời nói — không cần thuộc từng chữ, nhưng hãy giữ đúng thứ tự ý. Nếu hội đồng giới hạn 10 phút, bỏ khối 06:00 và 15:30, rút demo còn 2 câu.</p>
+  </div>
+
+  <div class="run">
+
+    <div class="cue">
+      <div class="cue-rail"><span class="at">00:00</span><span class="dur">0:40</span></div>
+      <div class="cue-body">
+        <p class="cue-title">Mở đầu</p>
+        <div class="slide"><b>Slide hiện</b>Tên đề tài, tên người thực hiện, một ảnh chụp giao diện chatbot đang trả lời kèm phần trích nguồn.</div>
+        <p class="say">Kính thưa hội đồng. Em xin trình bày đề tài xây dựng chatbot hỗ trợ cố vấn học tập cho sinh viên Trường Đại học Công nghiệp Việt – Hung. Sản phẩm là một hệ thống đã chạy được, hiện đang vận hành trên máy chủ của Trường, và cuối phần trình bày em sẽ demo trực tiếp.
+        <span class="beat">Nói chậm, đây là câu duy nhất hội đồng nghe khi còn hoàn toàn tập trung.</span></p>
+      </div>
+    </div>
+
+    <div class="cue">
+      <div class="cue-rail"><span class="at">00:40</span><span class="dur">1:20</span></div>
+      <div class="cue-body">
+        <p class="cue-title">Vấn đề đặt ra</p>
+        <div class="slide"><b>Slide hiện</b>Ảnh chụp một trang quy chế đào tạo dày đặc chữ, bên cạnh là ba câu hỏi thật của sinh viên.</div>
+        <p class="say">Quy chế đào tạo, quy định chuẩn đầu ra, quy định học phí, kế hoạch đào tạo từng ngành — tổng cộng mười hai văn bản, gần sáu mươi nghìn chữ. Sinh viên gần như không đọc. Khi có việc, các em hỏi cố vấn học tập, hỏi bạn bè, hoặc hỏi trong nhóm lớp — và câu trả lời nhận được thường là kinh nghiệm truyền miệng, không có căn cứ.</p>
+        <p class="say">Câu hỏi của sinh viên cũng không có dạng tra cứu. Các em không hỏi "Điều mấy quy định về cảnh báo học tập". Các em hỏi: <em>"Em còn nợ ba môn và điểm trung bình một phẩy chín, giờ làm sao ra trường đúng hạn?"</em> — kể hoàn cảnh của mình rồi hỏi nên làm gì. Đây chính là loại câu hỏi mà hệ thống phải trả lời được, và cũng là loại khó nhất.
+        <span class="beat">Đọc nguyên văn câu hỏi của sinh viên. Nó sẽ quay lại ở phần demo.</span></p>
+      </div>
+    </div>
+
+    <div class="cue">
+      <div class="cue-rail"><span class="at">02:00</span><span class="dur">1:00</span></div>
+      <div class="cue-body">
+        <p class="cue-title">Mục tiêu và phạm vi</p>
+        <div class="slide"><b>Slide hiện</b>Hai cột: "Hệ thống làm được" và "Hệ thống không làm" — nêu giới hạn ngay từ đầu.</div>
+        <p class="say">Mục tiêu đề tài đặt ra ba yêu cầu. Thứ nhất, trả lời được câu hỏi học vụ bằng tiếng Việt, theo lối tư vấn chứ không phải đọc lại điều khoản. Thứ hai, mọi câu trả lời phải dẫn được nguồn tới đúng Điều và đúng tên văn bản để sinh viên tự kiểm chứng. Thứ ba, khi kho tài liệu không có thông tin thì hệ thống phải nói thẳng là không có, tuyệt đối không suy diễn.</p>
+        <p class="say">Phạm vi tri thức giới hạn trong mười hai văn bản hiện có. Hệ thống không tra được điểm cá nhân, không đăng ký học phần thay sinh viên, và không thay thế cố vấn học tập — nó là công cụ tra cứu có dẫn nguồn.
+        <span class="beat">Chủ động nêu giới hạn ở đây. Hội đồng sẽ không phải hỏi vặn ở phần sau.</span></p>
+      </div>
+    </div>
+
+    <div class="cue">
+      <div class="cue-rail"><span class="at">03:00</span><span class="dur">2:00</span></div>
+      <div class="cue-body">
+        <p class="cue-title">Kiến trúc tổng thể</p>
+        <div class="slide"><b>Slide hiện</b>Sơ đồ một dòng chảy ngang: Câu hỏi → Mở rộng truy vấn → BGE-M3 + BM25 → RRF → Rerank → Ghép trọn Điều → Qwen3-14B → Đối chiếu trích dẫn → Trả lời + Nguồn.</div>
+        <p class="say">Hệ thống theo kiến trúc RAG — sinh câu trả lời có tăng cường truy xuất. Khác biệt căn bản so với việc hỏi thẳng một mô hình ngôn ngữ là ở chỗ: mô hình không được phép trả lời bằng trí nhớ của nó. Trước mỗi câu, hệ thống đi tìm trong kho văn bản của Trường những đoạn liên quan nhất, đặt nguyên văn các đoạn đó vào ngữ cảnh, rồi mới yêu cầu mô hình đọc và soạn câu trả lời.</p>
+        <p class="say">Kho tri thức được xây qua năm giai đoạn: bóc văn bản từ tệp Word gốc, làm sạch và cắt đoạn theo cấu trúc pháp lý, nhúng thành vector, truy xuất và sinh câu trả lời, cuối cùng là giao diện web.</p>
+        <p class="say">Điểm cần nhấn: bước cắt đoạn không cắt theo số ký tự như cách làm phổ thông, mà <strong>cắt theo mốc "Điều"</strong>. Đây là nền tảng cho toàn bộ khả năng trích dẫn — vì mỗi đoạn tri thức đều biết mình thuộc Điều nào của văn bản nào.
+        <span class="beat">Chỉ tay lần lượt vào từng khối trên sơ đồ. Đây là slide hội đồng nhìn lâu nhất.</span></p>
+      </div>
+    </div>
+
+    <div class="cue">
+      <div class="cue-rail"><span class="at">05:00</span><span class="dur">1:00</span></div>
+      <div class="cue-body">
+        <p class="cue-title">Dữ liệu</p>
+        <div class="slide"><b>Slide hiện</b>Bảng 12 văn bản với số đoạn từng văn bản; ba con số lớn: 183 đoạn · 57.755 từ · 97 Điều.</div>
+        <p class="say">Kho tri thức hiện gồm mười hai văn bản: quy chế đào tạo, quy định đào tạo trực tuyến, quy định chuẩn đầu ra ngoại ngữ và tin học, quy định học phí, tài liệu hướng dẫn hệ thống LMS, Luật Giáo dục đại học, và sáu bản kế hoạch đào tạo khoá K50 của các ngành.</p>
+        <p class="say">Sau xử lý được một trăm tám mươi ba đoạn tri thức, tổng gần năm mươi tám nghìn từ, phủ chín mươi bảy Điều khác nhau. Hai phần ba số đoạn mang được siêu dữ liệu số Điều — phần còn lại chủ yếu là tài liệu hướng dẫn LMS vốn không viết theo cấu trúc Điều khoản.
+        <span class="beat">Nếu hội đồng nhíu mày vì kho "chỉ" 183 đoạn — xem câu hỏi số 6 ở Mục 5.</span></p>
+      </div>
+    </div>
+
+    <div class="cue">
+      <div class="cue-rail"><span class="at">06:00</span><span class="dur">2:00</span></div>
+      <div class="cue-body">
+        <p class="cue-title">Bốn kỹ thuật của tầng truy xuất</p>
+        <div class="slide"><b>Slide hiện</b>Bốn ô, mỗi ô một kỹ thuật kèm <em>lỗi thực tế mà nó chữa</em>. Đây là slide chứng minh chiều sâu kỹ thuật.</div>
+        <p class="say">Tầng truy xuất có bốn kỹ thuật, và điều em muốn nhấn mạnh là: không kỹ thuật nào được thêm vào vì nó có trong bài báo. Mỗi kỹ thuật đều để chữa một lỗi đã đo được trên chính hệ thống này.</p>
+        <p class="say"><strong>Mở rộng truy vấn.</strong> Sinh viên viết "đuổi học", văn bản viết "buộc thôi học" — không có một từ nào chung để thuật toán tìm theo từ khoá bám vào. Hệ thống có một bảng quy đổi khẩu ngữ sang thuật ngữ pháp quy, chỉ thêm từ chứ không thay thế.</p>
+        <p class="say"><strong>Truy xuất lai và hợp nhất theo thứ hạng.</strong> Tìm theo ngữ nghĩa bằng vector bắt tốt ý định, nhưng bỏ sót thuật ngữ chính xác như VSTEP hay MOS; tìm theo từ khoá thì ngược lại. Hệ thống chạy song song cả hai rồi hợp nhất bằng RRF — gộp theo thứ hạng, nên không phải quy đổi hai loại điểm vốn khác đơn vị về cùng thang.</p>
+        <p class="say"><strong>Ghép trọn Điều.</strong> Mười tám trên một trăm linh bốn Điều dài quá phải cắt làm nhiều mảnh — Điều 7 có tới sáu mảnh. Đoạn tìm trúng thường chỉ là một mảnh, nên mô hình đọc được khoản a, khoản b mà mất khoản c rồi trả lời thiếu. Hệ thống ghép lại trọn vẹn cả Điều trước khi đưa vào ngữ cảnh.</p>
+        <p class="say"><strong>Xếp hạng lại gần như cả kho.</strong> Kho chỉ một trăm tám mươi ba đoạn, mà mô hình xếp hạng chấm hết cả kho chỉ mất khoảng hai phần mười giây. Vì vậy hệ thống lấy dư ứng viên tới mức gần như quét toàn bộ, rồi giao việc phân biệt đúng sai cho mô hình xếp hạng chuyên dụng.
+        <span class="beat">Nếu thiếu giờ, đây là khối cắt được — nhưng cố giữ ý "mỗi kỹ thuật chữa một lỗi đo được".</span></p>
+      </div>
+    </div>
+
+    <div class="cue">
+      <div class="cue-rail"><span class="at">08:00</span><span class="dur">2:00</span></div>
+      <div class="cue-body">
+        <p class="cue-title">Ba lớp chống bịa — phần quan trọng nhất</p>
+        <div class="slide"><b>Slide hiện</b>Ba lớp xếp chồng, kèm bảng số liệu chồng lấn (0,496 vs 0,493) chứng minh vì sao phải bỏ cách chặn bằng ngưỡng.</div>
+        <p class="say">Đây là phần em xin trình bày kỹ nhất, vì nó là rủi ro lớn nhất của loại hệ thống này.</p>
+        <p class="say"><strong>Lớp thứ nhất — cổng chặn hai tầng.</strong> Ban đầu hệ thống chặn câu hỏi ngoài phạm vi bằng ngưỡng độ tương đồng: điểm thấp hơn ngưỡng thì từ chối. Nhưng khi đo trên hai mươi hai câu hợp lệ và tám câu ngoài phạm vi, em phát hiện hai vùng điểm đã chồng lên nhau — câu hợp lệ thấp nhất được không phẩy bốn chín sáu, trong khi câu ngoài phạm vi cao nhất đạt không phẩy bốn chín ba. Không còn ngưỡng nào tách được. Đặt ngưỡng cao thì chặn oan ba trên hai mươi hai câu hợp lệ, trong đó có đúng câu quan trọng nhất — câu sinh viên hỏi về nợ môn.</p>
+        <p class="say">Nên em đổi thiết kế: ngưỡng chỉ còn là sàn an toàn, còn việc từ chối giao cho chính mô hình ngôn ngữ đọc ngữ cảnh rồi tự quyết định. Kết quả đo: tầng một không chặn nhầm câu hợp lệ nào, tầng hai từ chối đúng tám trên tám câu ngoài phạm vi, không bịa câu nào.</p>
+        <p class="say"><strong>Lớp thứ hai — đối chiếu trích dẫn bằng mã.</strong> Mô hình từng ghi "Điều 3 của Quy chế đào tạo" trong khi Điều 3 đó thuộc Quy định học phí, chỉ vì trong nội dung Điều đó có nhắc cụm "theo quy chế đào tạo". Sửa lời nhắc không hết. Nên hệ thống có một bước kiểm bằng mã: sau khi mô hình trả lời, chương trình đối chiếu từng cặp Điều – tên văn bản trong câu trả lời với ngữ cảnh thật, sai thì sửa lại.</p>
+        <p class="say"><strong>Lớp thứ ba — tra cứu có cấu trúc.</strong> Với số tín chỉ và danh sách học phần, hệ thống không để mô hình tự cộng. Mô hình từng bịa một trăm ba mươi hai tín chỉ cho ngành Kỹ thuật nhiệt trong khi con số thật là một trăm năm mươi. Nay các con số này do chương trình tra thẳng từ dữ liệu đã bóc rồi chèn vào ngữ cảnh dưới nhãn riêng.
+        <span class="beat">Đây là slide nên dừng lâu nhất. Nếu phải cắt giờ ở đâu, không cắt ở đây.</span></p>
+      </div>
+    </div>
+
+    <div class="cue">
+      <div class="cue-rail"><span class="at">10:00</span><span class="dur">1:30</span></div>
+      <div class="cue-body">
+        <p class="cue-title">Tinh chỉnh mô hình — và quyết định tắt nó đi</p>
+        <div class="slide"><b>Slide hiện</b>Đồ thị loss giảm đẹp về 0,070, bên cạnh là bảng so sánh 7 câu: 1 tốt hơn / 2 hoà / 4 kém hơn. Tiêu đề slide: "Loss đẹp không có nghĩa là mô hình tốt".</div>
+        <p class="say">Đề tài có thực hiện tinh chỉnh mô hình bằng phương pháp QLoRA trên ba nghìn một trăm tám mươi chín mẫu hỏi đáp, ba vòng, hơn bảy tiếng huấn luyện. Hàm mất mát giảm về không phẩy không bảy, độ chính xác token đạt chín tám phẩy tám phần trăm. Nhìn số liệu huấn luyện thì rất đẹp.</p>
+        <p class="say">Nhưng khi em đem so trực tiếp với mô hình gốc trên cùng bảy câu hỏi và cùng ngữ cảnh, kết quả ngược lại: bốn câu bản tinh chỉnh kém hơn rõ, hai câu hoà, chỉ một câu nhỉnh hơn. Bản tinh chỉnh học thuộc lối chép nguyên văn tài liệu, trả lời dài gấp hai đến ba lần rồi bị cắt cụt giữa câu. Có một câu nó trả lời lạc hẳn đề — hỏi về điểm trung bình tích luỹ thì nó đáp về học phí.</p>
+        <p class="say">Nguyên nhân là dữ liệu, không phải siêu tham số: đáp án trong bộ huấn luyện phần lớn là trích nguyên văn văn bản, nên huấn luyện càng kỹ thì mô hình càng học thuộc đúng cái lối chép đó. Em đã tắt bản tinh chỉnh, hệ thống đang chạy mô hình gốc. Bộ dữ liệu đã được viết lại theo lối tư vấn và sẵn sàng cho lần huấn luyện tiếp theo.
+        <span class="beat">Đây là khối dễ bị vặn nhất. Trình bày nó như một kết quả có phương pháp, không phải một thất bại — xem câu hỏi 3 ở Mục 5.</span></p>
+      </div>
+    </div>
+
+    <div class="cue demo">
+      <div class="cue-rail"><span class="at">11:30</span><span class="dur">4:00</span></div>
+      <div class="cue-body">
+        <p class="cue-title">DEMO TRỰC TIẾP</p>
+        <div class="slide"><b>Chuyển sang</b>Trình duyệt, giao diện chatbot, lịch sử đã xoá sạch. Chi tiết từng câu ở Mục 4.</div>
+        <p class="say">Xin phép hội đồng em chuyển sang demo trực tiếp trên hệ thống đang chạy. Em sẽ hỏi năm câu, mỗi câu nhằm chứng minh một năng lực khác nhau.
+        <span class="beat">Không đọc câu trả lời trên màn hình cho hội đồng nghe. Chỉ vào phần trích nguồn và nói ý nghĩa của nó.</span></p>
+      </div>
+    </div>
+
+    <div class="cue">
+      <div class="cue-rail"><span class="at">15:30</span><span class="dur">1:30</span></div>
+      <div class="cue-body">
+        <p class="cue-title">Số liệu đã đo</p>
+        <div class="slide"><b>Slide hiện</b>Bảng số liệu ở Mục 6, chia rõ hai phần: "đã đo" và "chưa đo".</div>
+        <p class="say">Về số liệu vận hành: hệ thống chạy trên một card RTX 5090, chiếm mười ba phẩy chín gigabyte trên ba mươi hai phẩy sáu gigabyte bộ nhớ đồ hoạ. Mô hình mười bốn tỷ tham số được lượng tử hoá bốn bit để vừa cùng lúc với mô hình nhúng và mô hình xếp hạng. Tốc độ sinh bốn mươi sáu token mỗi giây, thời gian trả lời trung vị ba giây, riêng khâu truy xuất trung vị ba trăm hai mươi tám mili giây.</p>
+        <p class="say">Em xin báo cáo trung thực phần chưa làm được: hệ thống <strong>chưa có đánh giá định lượng về độ chính xác của câu trả lời</strong>. Để có con số đó cần một bộ câu hỏi kiểm thử có đáp án do chuyên gia học vụ duyệt, và cần kiểm thử với sinh viên thật — cả hai đều chưa thực hiện. Những gì em đo được là ở tầng truy xuất và tầng từ chối, không phải độ chính xác toàn hệ thống.
+        <span class="beat">Nói câu này rõ ràng và chủ động. Hội đồng sẽ hỏi nếu bạn không nói.</span></p>
+      </div>
+    </div>
+
+    <div class="cue">
+      <div class="cue-rail"><span class="at">17:00</span><span class="dur">1:30</span></div>
+      <div class="cue-body">
+        <p class="cue-title">Hạn chế và hướng phát triển</p>
+        <div class="slide"><b>Slide hiện</b>Hai cột: hạn chế hiện tại · việc tiếp theo, có mốc thời gian.</div>
+        <p class="say">Bốn hạn chế chính. Một, chưa có bộ đánh giá định lượng như em vừa nêu. Hai, kho tri thức mới có mười hai văn bản, chưa phủ hết các ngành và chưa có quy định tuyển sinh, học bổng, công tác sinh viên. Ba, giao diện chưa có xác thực người dùng, chưa có nhật ký câu hỏi để phân tích nhu cầu. Bốn, hệ thống chưa được kiểm thử tải nhiều người dùng đồng thời.</p>
+        <p class="say">Hướng phát triển tương ứng: xây bộ câu hỏi kiểm thử có đáp án được Phòng Quản lý đào tạo duyệt; bổ sung văn bản các ngành còn lại; huấn luyện lại trên bộ dữ liệu đã viết lại theo lối tư vấn và đánh giá đối chứng trước khi bật; và triển khai thử nghiệm với một nhóm sinh viên để thu phản hồi thật.</p>
+      </div>
+    </div>
+
+    <div class="cue">
+      <div class="cue-rail"><span class="at">18:30</span><span class="dur">0:30</span></div>
+      <div class="cue-body">
+        <p class="cue-title">Kết luận</p>
+        <div class="slide"><b>Slide hiện</b>Ba câu chốt ở Mục 1, cùng địa chỉ truy cập hệ thống.</div>
+        <p class="say">Tóm lại, đề tài đã xây dựng được một hệ thống hoàn chỉnh, đang vận hành, trả lời câu hỏi học vụ dựa hoàn toàn trên văn bản chính thức và luôn dẫn nguồn để sinh viên kiểm chứng. Đóng góp kỹ thuật chính nằm ở cách phân đoạn theo cấu trúc pháp lý Việt Nam và ở cơ chế chống bịa ba lớp. Em xin hết phần trình bày và sẵn sàng nhận câu hỏi của hội đồng. Em xin cảm ơn.
+        <span class="beat">Dừng lại. Đừng nói thêm. Để hội đồng hỏi.</span></p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════ 4 ══════════════ -->
+<section class="sec">
+  <div class="sec-head">
+    <span class="sec-num">MỤC 4</span>
+    <h2>Kịch bản demo — 5 câu, 4 phút</h2>
+    <p class="sec-note">Gõ đúng từng chữ như dưới đây. Đây là các câu đã chạy qua bộ hiệu chỉnh, không phải câu ngẫu hứng. Câu 5 là câu quan trọng nhất — đừng bỏ vì hết giờ.</p>
+  </div>
+
+  <h3>Câu 1 — Tra cứu điều khoản trực tiếp <span style="color:var(--muted);font-weight:400">· ~40 giây</span></h3>
+  <div class="slide"><b>Gõ vào ô hỏi</b>Sinh viên bị cảnh báo học tập trong những trường hợp nào?</div>
+  <p class="say">Câu đầu tiên là dạng tra cứu thẳng. Hội đồng chú ý phần cuối câu trả lời — hệ thống liệt kê tên văn bản và số Điều mà nó đã dùng. Sinh viên có thể mở đúng Điều đó để đối chiếu.
+  <span class="beat">Chỉ chuột vào khối trích nguồn, giữ ở đó vài giây.</span></p>
+
+  <h3>Câu 2 — So sánh con số của sinh viên với mốc quy định <span style="color:var(--muted);font-weight:400">· ~45 giây</span></h3>
+  <div class="slide"><b>Gõ vào ô hỏi</b>Em bị CPA 1.5 ở năm hai thì có bị buộc thôi học không?</div>
+  <p class="say">Câu này không tra được bằng từ khoá, vì con số một phẩy năm không xuất hiện trong bất kỳ văn bản nào. Hệ thống phải tìm ra mốc quy định rồi so sánh. Xin hội đồng chú ý: nó phân biệt được "cảnh báo học tập" và "buộc thôi học" là hai mức xử lý khác nhau với hai mốc điểm khác nhau — đây là chỗ các mô hình hay nhầm.</p>
+
+  <h3>Câu 3 — Tư vấn theo hoàn cảnh <span style="color:var(--muted);font-weight:400">· ~60 giây · câu chủ lực</span></h3>
+  <div class="slide"><b>Gõ vào ô hỏi</b>Em còn nợ 3 môn và GPA 1.9, nên làm gì để ra trường đúng hạn?</div>
+  <p class="say">Đây chính là câu em nêu ở đầu buổi. Trước đây hệ thống trả lời câu này bằng một lời từ chối — "chưa tìm thấy trong quy định" — và đó là một hệ thống hỏng, vì nó từ chối đúng loại câu hỏi mà một hệ cố vấn sinh ra để trả lời.</p>
+  <p class="say">Nguyên nhân em tìm ra là một lỗi kỹ thuật cụ thể: câu hỏi sau khi được nhồi thêm từ khoá đã bị kéo lệch khỏi vùng ngữ nghĩa gốc, điểm tụt từ không phẩy năm năm chín xuống không phẩy năm ba tám và rơi dưới ngưỡng. Nay hệ thống chỉ dùng câu mở rộng cho tìm kiếm từ khoá, còn tìm theo ngữ nghĩa vẫn dùng câu gốc.</p>
+  <p class="say">Xin hội đồng chú ý cấu trúc câu trả lời: đối chiếu tình trạng của em với mốc quy định, nêu các lựa chọn mà quy chế cho phép, rồi liệt kê các bước cần làm theo thứ tự.
+  <span class="beat">Đây là câu chứng minh hệ thống là "cố vấn" chứ không phải "máy tra cứu". Dành thời gian cho nó.</span></p>
+
+  <h3>Câu 4 — Con số do chương trình tra, không do mô hình cộng <span style="color:var(--muted);font-weight:400">· ~40 giây</span></h3>
+  <div class="slide"><b>Gõ vào ô hỏi</b>Ngành Kỹ thuật nhiệt cần bao nhiêu tín chỉ để tốt nghiệp?</div>
+  <p class="say">Câu trả lời đúng là một trăm năm mươi tín chỉ, sáu mươi hai học phần, tám học kỳ. Con số này không do mô hình tự cộng — mô hình từng bịa ra một trăm ba mươi hai. Nó do chương trình tra thẳng từ bảng kế hoạch đào tạo đã bóc, rồi chèn vào ngữ cảnh như một dữ kiện đã xác minh.</p>
+  <p class="say">Việc cộng tín chỉ ở đây không tầm thường: kế hoạch đào tạo có các nhánh loại trừ nhau — hai định hướng chuyên ngành chỉ chọn một, nhóm tự chọn lấy sáu trong chín môn, khối riêng cho hệ kỹ sư. Cộng phẳng ra ba mươi lăm tín chỉ trong khi con số thật là hai mươi.</p>
+
+  <h3>Câu 5 — Từ chối câu ngoài phạm vi <span style="color:var(--muted);font-weight:400">· ~40 giây · quan trọng nhất</span></h3>
+  <div class="slide"><b>Gõ vào ô hỏi</b>Cách nấu phở bò ngon nhất là gì?</div>
+  <p class="say">Câu cuối cùng là câu em cho là quan trọng nhất của phần demo. Hệ thống nói thẳng là không có thông tin này trong các văn bản của Nhà trường, và hướng sinh viên liên hệ Phòng Quản lý đào tạo.</p>
+  <p class="say">Xin hội đồng chú ý thêm một chi tiết: khi câu trả lời là từ chối thuần, hệ thống <strong>ẩn luôn danh sách nguồn</strong>. Vì nếu vẫn hiện "Điều 5 – Quy chế đào tạo" bên dưới một câu hỏi về nấu phở thì sinh viên sẽ hiểu nhầm là quy chế có nói về việc đó.</p>
+  <p class="say">Trên bộ đo tám câu ngoài phạm vi, hệ thống từ chối đúng cả tám, không bịa câu nào. Với một hệ thống tư vấn học vụ, việc biết dừng lại quan trọng hơn việc trả lời được nhiều.
+  <span class="beat">Kết demo ở đây. Đây là câu để lại ấn tượng cuối.</span></p>
+
+  <div class="warn" style="margin-top:34px">
+    <h3>Nếu hội đồng muốn tự gõ câu hỏi</h3>
+    <p>Hãy mời — nhưng nói trước một câu: <em>"Xin hội đồng lưu ý phạm vi tri thức hiện tại là mười hai văn bản này. Nếu câu hỏi nằm ngoài, hệ thống sẽ từ chối, và đó là hành vi đúng thiết kế chứ không phải lỗi."</em></p>
+    <p>Câu này biến một câu trả lời "không biết" từ điểm trừ thành điểm cộng. Chuẩn bị sẵn và nói ngay trước khi đưa bàn phím.</p>
+  </div>
+</section>
+
+<!-- ══════════════ 5 ══════════════ -->
+<section class="sec">
+  <div class="sec-head">
+    <span class="sec-num">MỤC 5</span>
+    <h2>Hỏi đáp — 14 câu hội đồng nhiều khả năng hỏi</h2>
+    <p class="sec-note">Sắp theo xác suất được hỏi. Ba câu đầu gần như chắc chắn sẽ có.</p>
+  </div>
+
+  <div class="qa">
+
+    <div class="q">
+      <p class="q-t"><span class="qn">01</span>Độ chính xác của hệ thống là bao nhiêu phần trăm?</p>
+      <p>Trả lời thẳng: <strong>"Em chưa có con số đó, và em không muốn báo cáo một con số chưa đo được."</strong></p>
+      <p>Sau đó nêu những gì đã đo: ở tầng truy xuất, trên bộ hai mươi hai câu hợp lệ, hệ thống không chặn nhầm câu nào; trên tám câu ngoài phạm vi, từ chối đúng cả tám. Thời gian trả lời trung vị ba giây.</p>
+      <p>Rồi nêu vì sao chưa có: để đo độ chính xác câu trả lời cần một bộ câu hỏi kiểm thử có đáp án chuẩn do chuyên gia học vụ duyệt — đây là công việc cần Phòng Quản lý đào tạo tham gia, không phải việc em tự làm được. Đó là hạng mục đầu tiên trong hướng phát triển.</p>
+      <div class="pin"><b>Đừng làm:</b> đừng ước lượng "khoảng tám mươi phần trăm". Một con số bịa sẽ bị hỏi tiếp "đo trên bộ nào" và bạn sẽ không có đường lùi.</div>
+    </div>
+
+    <div class="q">
+      <p class="q-t"><span class="qn">02</span>Chatbot có bịa không? Làm sao biết nó không bịa?</p>
+      <p>Có ba cơ chế, và em xin nói thẳng là không cơ chế nào bảo đảm tuyệt đối.</p>
+      <p>Thứ nhất, mô hình không được trả lời bằng trí nhớ — nó chỉ được đọc các đoạn văn bản mà hệ thống vừa tìm ra và đặt vào ngữ cảnh. Thứ hai, sau khi mô hình trả lời, có một bước kiểm bằng mã đối chiếu từng cặp số Điều và tên văn bản trong câu trả lời với ngữ cảnh thật, sai thì sửa. Thứ ba, những dữ kiện dễ bịa nhất — số tín chỉ, danh sách học phần — không để mô hình tự tính mà do chương trình tra thẳng từ dữ liệu.</p>
+      <p>Về đo lường: trên tám câu hỏi hoàn toàn ngoài phạm vi kho tài liệu, hệ thống từ chối đúng cả tám. Ngoài ra, mọi câu trả lời đều hiện nguồn để sinh viên tự đối chiếu — đây là lớp bảo vệ cuối cùng và cũng là lý do em bắt buộc hiển thị trích dẫn.</p>
+    </div>
+
+    <div class="q">
+      <p class="q-t"><span class="qn">03</span>Đề tài có tinh chỉnh mô hình không? Nếu tinh chỉnh rồi mà lại tắt đi thì công đoạn đó có ý nghĩa gì?</p>
+      <p>Đây là câu dễ bị vặn nhất. Trả lời như sau:</p>
+      <p>Có, đề tài đã thực hiện đầy đủ quy trình tinh chỉnh QLoRA và có kết quả huấn luyện tốt trên giấy — hàm mất mát về không phẩy không bảy, độ chính xác token chín tám phẩy tám phần trăm. Nhưng khi đánh giá đối chứng với mô hình gốc trên cùng bộ câu hỏi và cùng ngữ cảnh thì bản tinh chỉnh kém hơn ở bốn trên bảy câu.</p>
+      <p><strong>Em cho rằng việc đo được điều đó chính là kết quả nghiên cứu, chứ không phải thất bại.</strong> Nếu em chỉ nhìn đường loss giảm rồi kết luận tinh chỉnh có hiệu quả — như cách trình bày thường thấy — thì em đã đưa vào vận hành một mô hình kém hơn mà không hề biết. Bài học ghi nhận được là: hàm mất mát giảm không đủ để kết luận mô hình tốt lên, bắt buộc phải đánh giá đối chứng trên đầu ra thật.</p>
+      <p>Nguyên nhân cũng đã xác định được: đáp án trong bộ dữ liệu huấn luyện phần lớn là trích nguyên văn văn bản, nên huấn luyện càng kỹ thì mô hình càng học thuộc lối chép đó thay vì học cách tư vấn. Em đã viết lại chín trăm đáp án theo lối tư vấn, bộ dữ liệu mới đã sẵn sàng và sẽ được huấn luyện lại rồi đánh giá đối chứng trước khi quyết định bật.</p>
+      <div class="pin"><b>Giọng nói:</b> bình thản, có căn cứ. Đây là chỗ thể hiện phương pháp nghiên cứu tốt nhất trong cả buổi.</div>
+    </div>
+
+    <div class="q">
+      <p class="q-t"><span class="qn">04</span>Sao không dùng ChatGPT hay Gemini cho nhanh, tự làm chi cho phức tạp?</p>
+      <p>Bốn lý do, xếp theo mức quan trọng.</p>
+      <p>Một, dữ liệu. Văn bản nội bộ của Trường và câu hỏi của sinh viên sẽ phải gửi ra máy chủ nước ngoài trong mỗi lượt hỏi. Hai, chi phí. Dịch vụ ngoài tính tiền theo từng lượt; hệ thống này chạy trên một card của Trường, chi phí biên bằng không. Ba, kiểm soát. Nhà cung cấp có thể đổi phiên bản mô hình bất kỳ lúc nào và hành vi hệ thống đổi theo mà mình không biết. Bốn, phụ thuộc mạng — mất kết nối là mất dịch vụ.</p>
+      <p>Cần nói thêm cho rõ: <strong>dùng dịch vụ ngoài cũng không giải quyết được bài toán chính của đề tài.</strong> ChatGPT không biết quy chế của Trường Việt – Hung. Vẫn phải xây tầng truy xuất, tầng chống bịa, tầng tra cứu có cấu trúc y hệt — chỉ thay đúng một khối sinh câu trả lời ở cuối. Phần công việc của đề tài không thay đổi.</p>
+    </div>
+
+    <div class="q">
+      <p class="q-t"><span class="qn">05</span>Khi quy chế của Trường thay đổi thì phải làm gì?</p>
+      <p>Chép văn bản mới vào thư mục <code>data/raw/</code> rồi chạy hai lệnh: một lệnh xử lý lại văn bản thành các đoạn, một lệnh nhúng lại vào cơ sở dữ liệu vector. Mất vài phút. <strong>Không phải huấn luyện lại mô hình.</strong></p>
+      <p>Đây chính là ưu điểm căn bản của kiến trúc RAG so với việc nhồi kiến thức vào trọng số mô hình: tri thức nằm ngoài mô hình nên cập nhật được độc lập, và luôn truy được nguồn. Với văn bản pháp quy vốn sửa đổi thường xuyên, đây là yêu cầu bắt buộc chứ không phải tiện ích.</p>
+    </div>
+
+    <div class="q">
+      <p class="q-t"><span class="qn">06</span>Kho tri thức chỉ có 183 đoạn, liệu có quá ít không?</p>
+      <p>Con số đó phản ánh đúng khối lượng văn bản học vụ hiện có: mười hai văn bản, gần năm mươi tám nghìn từ, chín mươi bảy Điều. Quy chế đào tạo của một trường là văn bản hữu hạn, không phải kho tri thức mở.</p>
+      <p>Và kho nhỏ lại là một lợi thế kỹ thuật em đã tận dụng: vì chỉ một trăm tám mươi ba đoạn, mô hình xếp hạng chuyên dụng có thể chấm điểm gần như toàn bộ kho trong khoảng hai phần mười giây. Nghĩa là hệ thống gần như không có rủi ro bỏ sót ở khâu tìm ứng viên — điều mà các hệ thống kho lớn không làm được và phải chấp nhận tìm kiếm xấp xỉ.</p>
+      <p>Hạn chế thật nằm ở <em>độ phủ chủ đề</em>, không ở số đoạn: kho chưa có quy định tuyển sinh, học bổng, công tác sinh viên, và mới có sáu ngành kế hoạch đào tạo. Đó là việc bổ sung văn bản, không phải việc sửa kiến trúc.</p>
+    </div>
+
+    <div class="q">
+      <p class="q-t"><span class="qn">07</span>Đóng góp khoa học riêng của đề tài là gì? Các thành phần đều là mô hình có sẵn.</p>
+      <p>Đúng là các mô hình đều là mô hình mở có sẵn — và em cho rằng dùng lại chúng là lựa chọn đúng. Đóng góp của đề tài nằm ở bốn chỗ khác:</p>
+      <p><strong>Một — phân đoạn theo cấu trúc pháp lý tiếng Việt.</strong> Cách làm phổ thông cắt văn bản theo số ký tự, làm đứt gãy điều khoản và mất khả năng trích dẫn. Hệ thống này nhận diện mốc "Điều N" bằng hai ràng buộc: điều kiện hình thái và điều kiện số hiệu tăng dần, để phân biệt tiêu đề Điều thật với tham chiếu chéo trong nội dung. Kèm theo là cơ chế ghép lại trọn vẹn một Điều bị cắt làm nhiều mảnh.</p>
+      <p><strong>Hai — kết quả phủ định về cổng chặn bằng ngưỡng.</strong> Em đo được rằng trên miền văn bản này, phân bố điểm của câu hợp lệ và câu ngoài phạm vi đã chồng lên nhau, nên không ngưỡng độ tương đồng nào tách được hai lớp. Đây là số liệu có giá trị vì cách chặn bằng ngưỡng là cách làm mặc định trong hầu hết hướng dẫn triển khai RAG.</p>
+      <p><strong>Ba — tách bạch giữa sinh và tra cứu.</strong> Những dữ kiện mà sai một chữ số là hỏng — số tín chỉ, danh sách học phần — được đưa ra khỏi phạm vi mô hình sinh, giao cho mã chương trình tra rồi chèn vào ngữ cảnh như dữ kiện đã xác minh.</p>
+      <p><strong>Bốn — bộ dữ liệu hỏi đáp học vụ tiếng Việt</strong> hơn ba nghìn sáu trăm cặp, xây từ văn bản gốc của Trường, cùng quy trình kiểm chứng tự động khi viết lại đáp án.</p>
+    </div>
+
+    <div class="q">
+      <p class="q-t"><span class="qn">08</span>Vì sao chọn Qwen3-14B?</p>
+      <p>Ba tiêu chí. Tiếng Việt tốt — đây là ràng buộc bắt buộc vì toàn bộ văn bản và câu hỏi đều là tiếng Việt. Giấy phép mở, tải về chạy cục bộ được. Và vừa phần cứng: ở dạng lượng tử hoá bốn bit, trọng số chiếm chín phẩy chín bảy gigabyte, đủ chỗ chạy đồng thời với mô hình nhúng và mô hình xếp hạng trên một card.</p>
+      <p>Trước đó hệ thống chạy mô hình ba tỷ tham số. Khi chuyển lên mười bốn tỷ, khác biệt rõ nhất không phải ở câu trả lời đúng, mà ở <strong>khả năng tự nhận ra ngữ cảnh không trả lời được câu hỏi</strong> — chính là tầng chống bịa thứ hai. Bản ba tỷ hay cố trả lời bằng đoạn văn bản gần giống; bản mười bốn tỷ từ chối đúng tám trên tám.</p>
+    </div>
+
+    <div class="q">
+      <p class="q-t"><span class="qn">09</span>Sinh viên gõ sai chính tả, viết tắt, dùng tiếng lóng thì sao?</p>
+      <p>Hệ thống xử lý bằng ba cơ chế. Mô hình nhúng BGE-M3 làm việc ở mức ngữ nghĩa nên chịu được diễn đạt khác nhau. Bảng mở rộng truy vấn quy đổi khẩu ngữ sang thuật ngữ pháp quy — "đuổi học" thành "buộc thôi học", "trượt môn" thành "học phần không đạt". Và với tên viết tắt của ngành, chương trình có bảng khai triển riêng: "KT" thành "kỹ thuật", "CNKT" thành "công nghệ kỹ thuật".</p>
+      <p>Cơ chế cuối này sinh ra từ một lỗi thật: câu hỏi "ngành Kỹ thuật nhiệt" không khớp được với chương trình có tên "KT Nhiệt" trong dữ liệu, tra hụt, và mô hình đã bịa ra số tín chỉ.</p>
+    </div>
+
+    <div class="q">
+      <p class="q-t"><span class="qn">10</span>Hệ thống có lưu thông tin cá nhân của sinh viên không?</p>
+      <p>Không. Hệ thống không có tài khoản người dùng, không có cơ sở dữ liệu sinh viên, không kết nối với hệ thống quản lý đào tạo. Lịch sử trò chuyện được lưu <strong>trong trình duyệt của chính người dùng</strong>, không gửi về máy chủ. Toàn bộ xử lý diễn ra trên máy chủ của Trường, không có lượt gọi nào ra dịch vụ bên ngoài.</p>
+      <p>Nói thêm cho đủ: hiện cũng vì vậy mà hệ thống <em>không có nhật ký câu hỏi</em>. Đây vừa là điểm tốt về quyền riêng tư, vừa là hạn chế — không phân tích được sinh viên hay hỏi gì để cải thiện. Nếu triển khai chính thức, cần thiết kế cơ chế ghi nhật ký ẩn danh có sự đồng ý.</p>
+    </div>
+
+    <div class="q">
+      <p class="q-t"><span class="qn">11</span>Nếu chatbot tư vấn sai và sinh viên làm theo thì ai chịu trách nhiệm?</p>
+      <p>Đây là câu hỏi đúng và em đã tính đến trong thiết kế, bằng ba lớp.</p>
+      <p>Thứ nhất, hệ thống được định vị rõ là công cụ tra cứu có dẫn nguồn, không thay thế cố vấn học tập. Thứ hai, mọi câu trả lời đều kèm tên văn bản và số Điều để sinh viên tự mở ra đối chiếu — hệ thống không yêu cầu sinh viên tin nó, mà chỉ ra chỗ để kiểm tra. Thứ ba, với các quyết định có hệ quả — thôi học, chuyển ngành, xét tốt nghiệp — câu trả lời luôn hướng sinh viên liên hệ Phòng Quản lý đào tạo.</p>
+      <p>Nếu triển khai chính thức, em kiến nghị bổ sung một dòng miễn trừ hiển thị thường trực trên giao diện và một quy trình để Phòng Quản lý đào tạo rà soát các câu hỏi thường gặp.</p>
+    </div>
+
+    <div class="q">
+      <p class="q-t"><span class="qn">12</span>Bao nhiêu sinh viên dùng cùng lúc được?</p>
+      <p>Em chưa đo kiểm thử tải, nên chưa có con số. Về mặt kiến trúc, hiện là một tiến trình đơn xử lý tuần tự, nên nhiều người hỏi cùng lúc sẽ phải xếp hàng.</p>
+      <p>Ước lượng có căn cứ để hội đồng hình dung: mỗi câu chiếm khoảng ba giây, tức lý thuyết khoảng hai mươi câu mỗi phút cho một tiến trình. Muốn phục vụ quy mô toàn trường thì cần thay khối sinh câu trả lời bằng một máy chủ suy luận hỗ trợ gộp lô — đây là thay thế một thành phần, không phải làm lại kiến trúc, vì cấu hình hệ thống đã tập trung ở một tệp.</p>
+      <div class="pin"><b>Lưu ý:</b> nói rõ "hai mươi câu mỗi phút" là <em>ước lượng lý thuyết</em>, không phải số đo. Đừng để nó thành số liệu.</div>
+    </div>
+
+    <div class="q">
+      <p class="q-t"><span class="qn">13</span>Đã so sánh với hệ thống chatbot nào khác chưa?</p>
+      <p>Chưa. Em chưa thực hiện so sánh định lượng với hệ thống khác, và cũng chưa tìm được hệ thống nào cùng miền tri thức để so công bằng — vì kho tri thức là văn bản riêng của Trường.</p>
+      <p>So sánh duy nhất em có là so sánh nội bộ và có đối chứng: mô hình gốc so với mô hình đã tinh chỉnh trên cùng bộ câu hỏi và cùng ngữ cảnh. Nếu hội đồng yêu cầu, so sánh khả thi và có ý nghĩa nhất là đo cùng bộ câu hỏi với một dịch vụ thương mại được cấp cùng ngữ cảnh — em có thể bổ sung.</p>
+    </div>
+
+    <div class="q">
+      <p class="q-t"><span class="qn">14</span>Khi nào đưa vào sử dụng thực tế được?</p>
+      <p>Hệ thống hiện đã chạy được và truy cập được, nhưng em chưa đề xuất mở rộng rãi cho sinh viên. Còn ba việc phải làm trước.</p>
+      <p>Một, có bộ câu hỏi kiểm thử với đáp án được Phòng Quản lý đào tạo duyệt, để biết độ chính xác thật trước khi sinh viên dựa vào. Hai, bổ sung xác thực người dùng và nhật ký ẩn danh. Ba, thử nghiệm giới hạn với một lớp hoặc một khoá để thu phản hồi thật trước khi mở toàn trường.</p>
+      <p>Em đề xuất lộ trình: thử nghiệm giới hạn trước, vừa thu phản hồi vừa dùng chính các câu hỏi thật đó để xây bộ đánh giá — vì bộ câu hỏi do sinh viên hỏi thật có giá trị hơn bộ câu hỏi do em tự nghĩ ra.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════ 6 ══════════════ -->
+<section class="sec">
+  <div class="sec-head">
+    <span class="sec-num">MỤC 6</span>
+    <h2>Bảng số liệu để trên slide</h2>
+    <p class="sec-note">Mọi con số dưới đây đều đã đo trên máy thật. Không thêm con số nào ngoài bảng này vào slide.</p>
+  </div>
+
+  <h3>Kho tri thức</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Hạng mục</th><th>Giá trị</th><th>Nguồn kiểm chứng</th></tr></thead>
+    <tbody>
+      <tr><td>Văn bản gốc</td><td class="num">12</td><td>6 quy chế/quy định/luật + 6 kế hoạch đào tạo K50</td></tr>
+      <tr><td>Đoạn tri thức</td><td class="num">183</td><td>đếm bản ghi <code>chunks.jsonl</code></td></tr>
+      <tr><td>Vector trong ChromaDB</td><td class="num">183</td><td>truy vấn trực tiếp CSDL</td></tr>
+      <tr><td>Tổng số từ</td><td class="num">57.755</td><td>thống kê <code>chunks.jsonl</code></td></tr>
+      <tr><td>Độ dài đoạn (từ)</td><td class="num">49 – 316 – 540</td><td>nhỏ nhất – trung bình – lớn nhất</td></tr>
+      <tr><td>Số Điều riêng biệt</td><td class="num">97</td><td>cặp (văn bản, số Điều)</td></tr>
+      <tr><td>Đoạn có siêu dữ liệu Điều</td><td class="num">122/183 (66,7%)</td><td>phần còn lại là tài liệu LMS không theo cấu trúc Điều</td></tr>
+      <tr><td>Chương trình đào tạo đã bóc</td><td class="num">6</td><td>4 ngành ô tô, KT Nhiệt, KT Môi trường</td></tr>
+      <tr><td>Dung lượng CSDL vector</td><td class="num">4,3 MB</td><td>đo dung lượng thư mục</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Vận hành</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Hạng mục</th><th>Giá trị</th><th>Ghi chú</th></tr></thead>
+    <tbody>
+      <tr><td>Bộ xử lý đồ hoạ</td><td class="num">RTX 5090 · 32,6 GB</td><td>máy chủ dùng chung</td></tr>
+      <tr><td>Bộ nhớ đồ hoạ hệ thống chiếm</td><td class="num">13,9 GB đỉnh</td><td>3 mô hình chạy đồng thời</td></tr>
+      <tr><td>Trọng số mô hình ngôn ngữ</td><td class="num">9,97 GB</td><td>Qwen3-14B lượng tử hoá NF4 4-bit</td></tr>
+      <tr><td>Tốc độ sinh</td><td class="num">46 token/giây</td><td>đo trên máy chủ</td></tr>
+      <tr><td>Thời gian trả lời</td><td class="num">3,0 giây (trung vị)</td><td>toàn trình, không tính lần nạp đầu</td></tr>
+      <tr><td>Thời gian truy xuất</td><td class="num">328 ms (trung vị)</td><td><code>calib_retrieval.py</code></td></tr>
+      <tr><td>Mã nguồn</td><td class="num">36 tệp · ~7.500 dòng</td><td>Python, 5 giai đoạn</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Chống bịa</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Phép đo</th><th>Kết quả</th><th>Ý nghĩa</th></tr></thead>
+    <tbody>
+      <tr><td>Tầng 1 — chặn nhầm câu hợp lệ</td><td class="num">0/22</td><td>không câu hợp lệ nào bị từ chối oan</td></tr>
+      <tr><td>Tầng 2 — từ chối câu ngoài phạm vi</td><td class="num">8/8</td><td>không bịa câu nào</td></tr>
+      <tr><td>Chồng lấn điểm dense</td><td class="num">0,496 vs 0,493</td><td>hợp lệ thấp nhất vs ngoài phạm vi cao nhất</td></tr>
+      <tr><td>Chồng lấn điểm rerank</td><td class="num">0,0071 vs 0,0129</td><td>hai vùng chồng ngược nhau — ngưỡng vô dụng</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Tinh chỉnh mô hình</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Hạng mục</th><th>Giá trị</th><th>Ghi chú</th></tr></thead>
+    <tbody>
+      <tr><td>Bộ dữ liệu hỏi đáp</td><td class="num">3.677 cặp</td><td>xây từ văn bản gốc của Trường</td></tr>
+      <tr><td>Mẫu huấn luyện</td><td class="num">3.189</td><td>định dạng khớp đúng lúc chạy thật</td></tr>
+      <tr><td>Huấn luyện</td><td class="num">3 vòng · 1.197 bước · 7h17</td><td>QLoRA, r=16</td></tr>
+      <tr><td>Hàm mất mát cuối</td><td class="num">0,070</td><td>độ chính xác token 98,8%</td></tr>
+      <tr><td>Đánh giá đối chứng</td><td class="num">1 tốt hơn / 2 hoà / 4 kém hơn</td><td>trên 7 câu, cùng ngữ cảnh → <strong>đã tắt</strong></td></tr>
+      <tr><td>Dữ liệu đã viết lại</td><td class="num">900/1.067 đáp án</td><td>sẵn sàng cho lần huấn luyện tiếp theo</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="warn">
+    <h3>Chưa đo được — phải nói rõ nếu được hỏi</h3>
+    <ol>
+      <li><strong>Độ chính xác câu trả lời.</strong> Chưa có bộ câu hỏi kiểm thử với đáp án chuẩn do chuyên gia học vụ duyệt.</li>
+      <li><strong>Kiểm thử với người dùng thật.</strong> Chưa triển khai cho sinh viên, chưa thu phản hồi.</li>
+      <li><strong>Kiểm thử tải.</strong> Chưa đo số người dùng đồng thời tối đa.</li>
+      <li><strong>So sánh với hệ thống khác.</strong> Chưa có đối chứng ngoài phạm vi dự án.</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ══════════════ 7 ══════════════ -->
+<section class="sec">
+  <div class="sec-head">
+    <span class="sec-num">MỤC 7</span>
+    <h2>Nếu có sự cố</h2>
+    <p class="sec-note">Đọc trước một lượt. Nếu sự cố xảy ra thật thì sẽ không kịp mở ra đọc.</p>
+  </div>
+
+  <div class="tw"><table>
+    <thead><tr><th>Hiện tượng</th><th>Nguyên nhân thường gặp</th><th>Xử lý tại chỗ</th></tr></thead>
+    <tbody>
+      <tr><td>Không mở được địa chỉ công khai</td><td>tunnel đã đổi địa chỉ sau khi khởi động lại</td><td>chuyển sang địa chỉ nội bộ <code>192.168.88.31:7860</code></td></tr>
+      <tr><td>Web không phản hồi</td><td>người khác chiếm GPU, hệ thống tràn bộ nhớ</td><td>trình chiếu PDF ảnh chụp đã chuẩn bị; nói rõ máy chủ dùng chung</td></tr>
+      <tr><td>Câu đầu tiên rất chậm</td><td>mô hình đang nạp lần đầu</td><td>đã tránh được nếu hỏi thử trước 30 phút — nếu vẫn xảy ra, nói thẳng lý do</td></tr>
+      <tr><td>Trả lời sai / thiếu ý</td><td>đoạn văn bản liên quan chưa vào được ngữ cảnh</td><td><strong>Đừng chống chế.</strong> Mở phần trích nguồn, chỉ ra hệ thống đã dùng Điều nào, nói rõ đây là hạn chế của tầng truy xuất và là hướng cải thiện</td></tr>
+      <tr><td>Hội đồng hỏi câu ngoài phạm vi</td><td>hành vi đúng thiết kế</td><td>nêu trước câu rào ở cuối Mục 4; coi việc từ chối là minh chứng, không phải lỗi</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="warn">
+    <h3>Ba điều tuyệt đối không nói</h3>
+    <ol>
+      <li><strong>Không nêu con số độ chính xác chưa đo.</strong> Không "khoảng 80%", không "gần như luôn đúng". Hội đồng sẽ hỏi đo trên bộ nào.</li>
+      <li><strong>Không nói tinh chỉnh đã cải thiện hệ thống.</strong> Số liệu đo được là ngược lại, và số liệu đó đang có trong báo cáo.</li>
+      <li><strong>Không nói hệ thống thay thế được cố vấn học tập.</strong> Nó là công cụ tra cứu có dẫn nguồn — nói đúng vai trò thì mọi hạn chế đều trở thành hợp lý.</li>
+    </ol>
+  </div>
+</section>
+
+<p class="foot">Kịch bản này lập từ mã nguồn và số liệu đo thực tế của dự án ChatBot · <code>docs/kich-ban-bao-ve.html</code> · Mọi số liệu đều có lệnh tái lập nêu trong <code>CLAUDE.md</code></p>
+
+</div>

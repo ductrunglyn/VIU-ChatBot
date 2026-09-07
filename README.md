@@ -9,19 +9,70 @@ tuyển sinh và tư vấn lộ trình học tập cho sinh viên.
 
 ## Môi trường
 
-Dự án chạy trong conda env **`test`**. Nên chạy trong `screen` để không bị ngắt:
+Tên môi trường conda **khác nhau giữa các máy** (máy thầy Trung là `test`, server
+`192.168.88.31` là `ChatBot`). Cài thư viện (chỉ cần 1 lần, đổi tên env cho đúng máy):
 ```bash
-screen -r ChatBot                 # vào lại phiên screen của dự án
-conda activate ChatBot            # kích hoạt môi trường (tên env tuỳ máy)
-cd ~/hdtrungoi/ChatBot
-nvidia-smi                        # kiểm tra GPU (RTX 4080 SUPER) còn trống không
-```
-Cài thư viện (chỉ cần 1 lần):
-```bash
-conda activate ChatBot
+conda activate <tên_env>
 pip install -r requirements.txt
 pip install sentence-transformers chromadb    # cho Giai đoạn 2
 ```
+Kiểm GPU: `nvidia-smi`.
+
+---
+
+## Chạy web (bước dùng lại thường xuyên nhất)
+
+Web chạy nền trong `screen` để đóng terminal/mất SSH không bị ngắt. Có **2 screen
+độc lập**: một chạy chính web, một chạy tunnel để có link truy cập từ Internet —
+chỉ tạo tunnel khi cần chia sẻ ra ngoài mạng nội bộ trường.
+
+### 1) Screen chạy web
+
+```bash
+bash scripts/chay-web.sh        # tự tạo/kiểm tra screen tên "ChatBot", tự dò env, tự kiểm tra điều kiện
+```
+Script tự dò env nào có đủ `gradio` + `torch` nên thường không cần sửa gì. Muốn
+chỉ định thẳng: `ENV=ChatBot bash scripts/chay-web.sh` hoặc `PY=/đường/dẫn/python bash scripts/chay-web.sh`.
+
+Script sẽ tự tạo screen (không cần `screen -S ChatBot` tay trước), kiểm tra vector
+DB, adapter fine-tune, dung lượng GPU trống, rồi báo:
+```
+✅ Web đã lên: http://<IP-máy-chủ>:7860
+```
+Các lệnh khác:
+```bash
+bash scripts/chay-web.sh --xem    # xem nhật ký đang chạy (Ctrl+C để thoát, KHÔNG dừng web)
+bash scripts/chay-web.sh --dung   # dừng web
+screen -r ChatBot                 # vào thẳng bên trong screen (Ctrl+A rồi D để thoát ra mà không dừng)
+```
+Mở trình duyệt: `http://localhost:7860` (trên chính máy chủ) hoặc `http://<IP-máy-chủ>:7860` (máy khác cùng mạng LAN, xem IP bằng `hostname -I`).
+
+### 2) Screen chạy tunnel (link công khai ra Internet)
+
+Dùng khi cần truy cập từ ngoài mạng nội bộ trường (demo từ xa, chia sẻ cho người
+không cùng LAN). Dùng Cloudflare Quick Tunnel — **không cần tài khoản**, mỗi lần
+chạy sinh một địa chỉ ngẫu nhiên mới (dạng `https://<3-từ-ngẫu-nhiên>.trycloudflare.com`).
+
+**Web phải đang chạy trước** (bước 1), vì tunnel chỉ chuyển tiếp tới cổng 7860.
+
+```bash
+screen -dmS CFTunnel bash -c \
+  "cloudflared tunnel --url http://127.0.0.1:7860 2>&1 | tee ~/hdtrungoi/ChatBot/tunnel.log"
+```
+Lấy địa chỉ công khai vừa được cấp:
+```bash
+grep -o 'https://[a-z-]*\.trycloudflare\.com' ~/hdtrungoi/ChatBot/tunnel.log | head -1
+```
+Các lệnh khác:
+```bash
+screen -r CFTunnel                # vào thẳng bên trong screen xem trực tiếp
+screen -S CFTunnel -X quit        # dừng tunnel (địa chỉ công khai sẽ chết theo)
+```
+> **Lưu ý:** địa chỉ tunnel **đổi mới mỗi lần chạy lại** — không lưu cố định được
+> với Quick Tunnel. Nếu cần địa chỉ ổn định lâu dài, phải đăng ký tài khoản
+> Cloudflare và cấu hình named tunnel (chưa thiết lập ở dự án này).
+> **Cân nhắc trước khi bật:** tunnel để lộ chatbot (và qua đó là nội dung văn bản
+> đã nạp) ra Internet công khai, ai có link đều truy cập được.
 
 ---
 
@@ -180,14 +231,8 @@ trong `common/config.py`). Tham số LoRA/epoch cũng ở `config.py`.
 ## Giai đoạn 5 — Giao diện web (chatbot)  ✅
 Website chat (Gradio) cho sinh viên/thầy cô dùng thật. Nạp model 1 lần, phục vụ
 nhiều người; câu trả lời hiện dần (streaming) và kèm nguồn trích dẫn.
-```bash
-conda activate ChatBot
-cd ~/hdtrungoi/ChatBot
-python src/Phase5-UI/app.py       # nên chạy trong `screen -r ChatBot` để giữ chạy nền
-```
-Mở trình duyệt:
-- Trên chính máy chủ: **http://localhost:7860**
-- Máy khác cùng mạng LAN: **http://\<IP-máy-chủ\>:7860** (xem IP bằng `hostname -I`)
+
+> **Cách chạy (kể cả link công khai qua tunnel): xem mục [Chạy web](#chạy-web-bước-dùng-lại-thường-xuyên-nhất) ở đầu tài liệu này.**
 
 **Giao diện có gì:**
 - Nhận diện thương hiệu Nhà trường: logo và màu chuẩn (xanh `#0082BC`, cam `#EA902F`),
@@ -203,8 +248,9 @@ Mở trình duyệt:
 
 > Dùng model đã fine-tune (nếu có adapter). Đổi cổng: `UI_PORT` trong `common/config.py`.
 > Số lượt hội thoại đưa vào ngữ cảnh: `UI_HISTORY_TURNS`.
-> Cần link công khai tạm thời (demo qua Internet): sửa `share=False` -> `share=True`
-> trong `app.py` — **cân nhắc** vì sẽ lộ chatbot + dữ liệu ra ngoài.
+> Cần link công khai tạm thời (demo qua Internet): dùng tunnel, xem mục
+> [Chạy web](#chạy-web-bước-dùng-lại-thường-xuyên-nhất) ở đầu tài liệu — không dùng
+> `share=True` của Gradio (dự án không dùng cách này).
 
 ---
 

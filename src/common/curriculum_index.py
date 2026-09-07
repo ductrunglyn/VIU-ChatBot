@@ -36,6 +36,24 @@ def _fold(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", s.replace("đ", "d")).strip()
 
 
+# Tên ngành trong kế hoạch đào tạo được nhà trường viết TẮT ("KT Nhiệt",
+# "Công nghệ KT ô tô") còn sinh viên gõ đầy đủ ("Kỹ thuật nhiệt"). Không khai
+# triển thì "ngành Kỹ thuật nhiệt tổng bao nhiêu tín chỉ" không khớp ngành nào,
+# rơi xuống nhánh học phần cùng tên và trả về 3 tín chỉ của MÔN thay vì 150 tín
+# chỉ của NGÀNH — đo được mô hình nhận dữ kiện sai rồi bịa ra "132 tín chỉ".
+_ABBREV = ((r"\bcnkt\b", "cong nghe ky thuat"),
+           (r"\bkt\b", "ky thuat"),
+           (r"\bcn\b", "cong nghe"))
+
+
+def _fold_name(s: str) -> str:
+    """Như _fold nhưng khai triển các chữ viết tắt hay gặp ở tên ngành."""
+    out = _fold(s)
+    for pat, full in _ABBREV:
+        out = re.sub(pat, full, out)
+    return re.sub(r"\s{2,}", " ", out).strip()
+
+
 @lru_cache(maxsize=1)
 def load():
     courses, programs = [], []
@@ -70,6 +88,14 @@ _PROGRAM_HINT = re.compile(r"\bnganh\b|chuyen nganh|khoa\s*\d|\bk\d{2}\b")
 _SEM_RE = re.compile(r"hoc ky\s*(\d{1,2})")
 _YEAR_RE = re.compile(r"nam (?:thu\s*)?(\d)")
 
+# Một cái tên có thể vừa là NGÀNH vừa là HỌC PHẦN ("Kỹ thuật nhiệt" là cả hai).
+# Từ chỉ loại trong câu hỏi quyết định hỏi cái nào — thiếu bước này thì
+# "ngành Kỹ thuật nhiệt bao nhiêu tín chỉ" (150) và "môn Kỹ thuật nhiệt bao nhiêu
+# tín chỉ" (3) nhận cùng một khối dữ kiện.
+_ASK_PROGRAM = re.compile(r"\bnganh\b|chuyen nganh|chuong trinh|toan khoa|ca khoa|"
+                          r"ra truong|tot nghiep")
+_ASK_COURSE = re.compile(r"\bmon\b|\bmon hoc\b|hoc phan")
+
 
 def is_curriculum_question(q: str) -> bool:
     fq = _fold(q)
@@ -103,18 +129,26 @@ def resolve_semester(q: str) -> Optional[int]:
 def match_programs(q: str) -> list[dict]:
     """Tìm chương trình mà câu hỏi đang nhắc tới, khớp theo tên ngành/chuyên ngành."""
     _, programs = load()
-    fq = _fold(q)
-    hits = []
+    fq = _fold_name(q)
+    hits = []          # [(độ dài tên khớp, chương trình)]
     for p in programs:
+        best = 0
         for field in (p.get("chuyen_nganh"), p.get("nganh")):
             if not field:
                 continue
-            key = _fold(field)
+            key = _fold_name(field)
             # tên ngắn như "ô tô" dễ khớp bừa -> yêu cầu khớp trọn cụm
             if key and key in fq:
-                hits.append(p)
-                break
-    return hits
+                best = max(best, len(key))
+        if best:
+            hits.append((best, p))
+    if not hits:
+        return []
+    # Tên ngành lồng nhau: "ky thuat o to" là con của "cong nghe ky thuat o to".
+    # Hỏi "ngành Công nghệ kỹ thuật ô tô" mà không ưu tiên tên DÀI nhất thì cả hai
+    # ngành cùng khớp, dữ kiện trả về gấp đôi và mô hình lẫn tổng tín chỉ hai ngành.
+    longest = max(n for n, _ in hits)
+    return [p for n, p in hits if n == longest]
 
 
 def match_courses(q: str) -> list[dict]:
@@ -192,8 +226,16 @@ def facts_for(question: str) -> str:
     sem = resolve_semester(question)
     parts: list[str] = []
 
-    # Hỏi thẳng về một học phần: trả đúng học phần đó ở mọi ngành có dạy.
     named = match_courses(question)
+    # Trùng tên giữa ngành và học phần -> để từ chỉ loại trong câu hỏi phân xử.
+    if named and progs:
+        fq = _fold(question)
+        if _ASK_PROGRAM.search(fq):
+            named = []
+        elif _ASK_COURSE.search(fq):
+            progs = []
+
+    # Hỏi thẳng về một học phần: trả đúng học phần đó ở mọi ngành có dạy.
     if named and not progs:
         lines = [f"- {program_label(c)}: học kỳ {c['hoc_ky']}, {c['tin_chi']:g} tín chỉ "
                  f"({c['tin_chi_raw']}), {c['nhom'].lower()}, mã {c['ma_hp']}"

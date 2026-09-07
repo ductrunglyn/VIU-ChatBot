@@ -21,13 +21,13 @@ models/
 data/qa/*.docx
 data/qa/*.csv
 !data/qa/qa_pairs_template.csv
-# Mốc tiến độ của mẻ tinh chỉnh: chỉ là danh sách id, nhưng vẫn là dấu vết dữ
-# liệu thật và tái tạo được bằng khoi_phuc_tien_do.py
-data/qa/*.tien_do.json
-# Script một mạch do tinh-chinh.sh sinh ra lúc chạy
-.tinh-chinh-mot-mach.sh
+# Bản sao lưu Q/A trước khi tinh chỉnh câu chữ — vẫn là dữ liệu thật của trường
+data/qa/sao-luu/
 
 # Hệ điều hành / IDE
 .DS_Store
 .vscode/
 *.log
+
+# Thư mục tạm của Gradio khi chạy web (xem GRADIO_TEMP_DIR trong chay-web.sh)
+.gradio_tmp/

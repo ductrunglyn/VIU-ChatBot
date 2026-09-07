@@ -73,8 +73,14 @@ def _load_rows():
         # Tệp gộp (đã rà soát tay) + các tệp SINH TỰ ĐỘNG kèm theo: mẫu từ chối,
         # Q/A kế hoạch đào tạo... Cố ý không gộp chúng vào qa_viu_full.csv để mỗi
         # lần sinh lại không ghi đè phần thầy cô đã chỉnh tay.
+        # Loại mọi BẢN SAO LƯU. Chỉ chặn ".bak.csv" là chưa đủ: bản sao lưu của
+        # tinh_chinh_dap_an.py tên ".truoc-tinhchinh.csv" đã lọt vào và nâng số câu
+        # từ 3502 lên 5621 — tập huấn luyện khi đó chứa CẢ đáp án cũ chưa tinh chỉnh
+        # lẫn bản mới, đúng thứ vừa bỏ công sửa. Chặn theo danh sách hậu tố.
+        HAU_TO_SAO_LUU = (".bak.csv", ".truoc-tinhchinh.csv", ".backup.csv", ".old.csv")
         extra = sorted(p for p in qa_dir.glob("qa_*.csv")
-                       if p.name not in (MERGED_NAME,) and not p.name.endswith(".bak.csv")
+                       if p.name not in (MERGED_NAME,)
+                       and not p.name.endswith(HAU_TO_SAO_LUU)
                        and p.name != "qa_pairs_template.csv")
         files = [merged] + extra
     else:
@@ -104,8 +110,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-rag", action="store_true",
                     help="dựng kiểu cũ: chỉ câu hỏi -> đáp án, không kèm tài liệu")
-    ap.add_argument("--k", type=int, default=3,
-                    help="số đoạn tài liệu truy xuất kèm mỗi mẫu (mặc định 3)")
+    # Mặc định bám theo RAG_TOP_K để mẫu huấn luyện có ĐÚNG số đoạn tài liệu như
+    # lúc chạy thật. Đóng cứng 3 như trước là tự tạo lệch: rag.py đưa 6 đoạn vào
+    # ngữ cảnh còn mô hình chỉ từng học đọc 3 đoạn.
+    ap.add_argument("--k", type=int, default=config.RAG_TOP_K,
+                    help=f"số đoạn tài liệu truy xuất kèm mỗi mẫu (mặc định RAG_TOP_K={config.RAG_TOP_K})")
     ap.add_argument("--max-tokens", type=int, default=config.FT_MAX_LEN,
                     help="bỏ mẫu dài hơn ngưỡng này (mặc định lấy theo FT_MAX_LEN)")
     args = ap.parse_args()
