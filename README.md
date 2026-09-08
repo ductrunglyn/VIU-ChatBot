@@ -76,6 +76,59 @@ screen -S CFTunnel -X quit        # dừng tunnel (địa chỉ công khai sẽ 
 
 ---
 
+## Đóng gói mang sang máy khác
+
+Hai cách, chọn theo việc máy đích đã có sẵn gì:
+
+### Cách 1 — Gói tự chạy (máy đích KHÔNG cần cài gì)
+
+Đóng gói cả môi trường Python + mô hình + mã + dữ liệu thành một thư mục duy nhất.
+Máy đích không cần conda, không cần pip, không cần tải mô hình, không cần root.
+
+```bash
+bash scripts/dong-goi.sh --thu      # xem trước dung lượng, chưa chép gì
+bash scripts/dong-goi.sh            # đóng gói vào ~/goi-chatbot  (~44GB)
+bash scripts/dong-goi.sh --dich /mnt/usb/goi     # đóng vào ổ ngoài
+```
+
+Chuyển sang máy đích rồi chạy **một lệnh**:
+```bash
+rsync -a --partial --info=progress2 ~/goi-chatbot/ user@may-dich:~/goi-chatbot/
+# trên máy đích:
+cd ~/goi-chatbot && bash chay.sh        # bật web + tunnel, in ra link public
+```
+
+Lần đầu `chay.sh` mất thêm 2–5 phút bung môi trường, các lần sau chạy thẳng.
+Gói tự chứa hoàn toàn — mô hình đọc từ `hf/` trong gói (qua `HF_HOME`), không
+đụng và không làm bẩn thư mục nhà của máy đích.
+
+**Máy đích cần:** Linux x86_64, driver NVIDIA ≥ 525, GPU trống ~15GB, đĩa ~50GB.
+Không cần Internet để chạy web (chỉ cần nếu muốn link public).
+
+| Thành phần trong gói | Dung lượng |
+|---|---|
+| `moi-truong.tar.gz` — Python + torch + gradio + transformers | ~11GB (nén còn ~4GB) |
+| `hf/` — Qwen3-14B, bge-m3, bge-reranker-v2-m3 | ~35GB |
+| `ChatBot/` — mã nguồn, dữ liệu, kho vector, adapter | ~205MB |
+| `bin/cloudflared` | 38MB |
+
+> **Vì sao dùng `conda-pack` chứ không tar thẳng thư mục env:** env conda có nhúng
+> đường dẫn tuyệt đối trong shebang và file cấu hình. `conda-pack` + `conda-unpack`
+> viết lại chúng nên bung ra thư mục nào cũng chạy.
+
+### Cách 2 — Đồng bộ trong LAN (máy đích đã có conda)
+
+Nhẹ hơn vì không mang môi trường Python, nhưng máy đích phải tự `pip install -r requirements.txt`.
+
+```bash
+bash scripts/chuyen-sang-server.sh --thu          # xem trước
+bash scripts/chuyen-sang-server.sh                # chỉ mã + dữ liệu (~205MB)
+bash scripts/chuyen-sang-server.sh --model-web    # thêm 3 mô hình (~35GB)
+```
+Dùng `rsync` nên chạy lại lần hai gần như tức thì, đứt mạng giữa chừng thì chạy lại là tiếp tục.
+
+---
+
 ## Giai đoạn 1 — Xử lý dữ liệu  ✅
 
 Biến tài liệu gốc (PDF/Word/Excel) → chunk văn bản sạch, có cấu trúc.

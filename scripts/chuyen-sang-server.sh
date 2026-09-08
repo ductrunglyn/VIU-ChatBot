@@ -5,14 +5,17 @@
 # hai gần như tức thì, và đứt mạng giữa chừng thì chạy lại là tiếp tục chỗ dở.
 #
 # Cách dùng:
-#     bash scripts/chuyen-sang-server.sh                # chỉ mã + dữ liệu (249MB)
-#     bash scripts/chuyen-sang-server.sh --model-web    # thêm 13GB mô hình ĐỂ CHẠY WEB
-#     bash scripts/chuyen-sang-server.sh --model-all    # thêm cả 41GB (kèm Qwen3-14B)
+#     bash scripts/chuyen-sang-server.sh                # chỉ mã + dữ liệu (~205MB)
+#     bash scripts/chuyen-sang-server.sh --model-web    # thêm 35GB mô hình ĐỂ CHẠY WEB
+#     bash scripts/chuyen-sang-server.sh --model-all    # thêm cả kho HF (~70GB)
 #     bash scripts/chuyen-sang-server.sh --thu          # chỉ xem sẽ gửi gì, không gửi
 #
-# Chạy web CHỈ CẦN 3 mô hình (13GB): Qwen2.5-3B-Instruct làm nền, bge-m3 để nhúng,
-# bge-reranker-v2-m3 để xếp hạng lại. Qwen3-14B nặng 28GB nhưng chỉ dùng lúc tinh
-# chỉnh dữ liệu, KHÔNG dính gì tới việc phục vụ — đừng chép nếu chỉ để chạy web.
+# Chạy web CẦN 3 mô hình (~35GB): Qwen3-14B soạn câu trả lời, bge-m3 để nhúng,
+# bge-reranker-v2-m3 để xếp hạng lại.
+#
+# CẢNH BÁO: script này giả định máy đích ĐÃ CÓ conda + đã cài requirements.txt.
+# Muốn máy đích không phải cài gì hết thì dùng scripts/dong-goi.sh — nó gói kèm
+# cả môi trường Python nên bên kia chỉ việc chạy `bash chay.sh`.
 set -euo pipefail
 
 DICH="${DICH:-hoangtrung@192.168.88.31}"
@@ -71,15 +74,15 @@ rsync -az --info=progress2 --partial $KHO "${LOAI[@]}" \
 if [[ -n "$MODEL" ]]; then
   MLOAI=()
   if [[ "$MODEL" == "web" ]]; then
-    # Chỉ 3 mô hình cần để phục vụ. Bỏ Qwen3-14B (28GB) vì nó chỉ dùng lúc tinh
-    # chỉnh dữ liệu — chép sang server chạy web là phí băng thông lẫn ổ đĩa.
-    MLOAI=(--include 'hub/' --include 'hub/models--Qwen--Qwen2.5-3B-Instruct/***'
+    # Đúng 3 mô hình mà rag.py nạp lúc phục vụ. Kho HF còn ~35GB mô hình của các
+    # dự án khác (whisper, phobert, wav2vec2...) — không liên quan, đừng gửi.
+    MLOAI=(--include 'hub/' --include 'hub/models--Qwen--Qwen3-14B/***'
            --include 'hub/models--BAAI--bge-m3/***'
            --include 'hub/models--BAAI--bge-reranker-v2-m3/***'
            --exclude '*')
-    echo; echo "==> Gửi 3 mô hình để CHẠY WEB (~13GB)"
+    echo; echo "==> Gửi 3 mô hình để CHẠY WEB (~35GB)"
   else
-    echo; echo "==> Gửi toàn bộ kho mô hình (~41GB, kèm Qwen3-14B để tinh chỉnh)"
+    echo; echo "==> Gửi toàn bộ kho mô hình (~70GB, kèm cả mô hình dự án khác)"
   fi
   rsync -az --info=progress2 --partial $KHO "${MLOAI[@]}" \
         "$HOME/.cache/huggingface/" "$DICH:~/.cache/huggingface/"
